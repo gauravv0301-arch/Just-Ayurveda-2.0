@@ -1,0 +1,86 @@
+{
+  "project_details": {
+    "name": "Just Ayurveda",
+    "description": "Premium, age-gated intimate wellness and men's wellness storefront.",
+    "theme": "Light",
+    "archetype": "1 - Organic & Earthy",
+    "tone": "Discreet, premium, minimal, medically responsible, trustworthy."
+  },
+  "colors": {
+    "primary": "#3bb44b",
+    "primary_dark": "#233232",
+    "secondary": "#8dac96",
+    "secondary_dark": "#4f5958",
+    "accent": "#61a06c",
+    "background_main": "#edfbf0",
+    "background_card": "#cfecd6",
+    "background_card_hover": "#ffffff",
+    "text_main": "#233232",
+    "text_muted": "#4f5958",
+    "gradients": {
+      "primary_to_accent": "linear-gradient(135deg, #3bb44b 0%, #61a06c 100%)",
+      "dark_to_muted": "linear-gradient(135deg, #233232 0%, #4f5958 100%)",
+      "soft_to_main": "linear-gradient(135deg, #cfecd6 0%, #edfbf0 100%)"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Outfit, sans-serif",
+      "body": "Plus Jakarta Sans, sans-serif"
+    },
+    "scales": {
+      "h1": "text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-[#233232]",
+      "h2": "text-3xl md:text-4xl font-semibold tracking-tight text-[#233232]",
+      "h3": "text-xl md:text-2xl font-medium text-[#233232]",
+      "body": "text-base leading-relaxed text-[#4f5958]",
+      "small": "text-sm uppercase tracking-[0.2em] text-[#8dac96]"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous spacing. p-8 to p-16 for containers. Lots of breathing room. Soft, elegant shapes.",
+    "border_radius": "rounded-3xl for main containers, rounded-2xl for cards",
+    "shadows": "shadow-[0_8px_30px_rgb(0,0,0,0.04)] for subtle elevation",
+    "glassmorphism": "Only small amounts (Sticky header, Floating WhatsApp button). backdrop-blur-xl bg-[#edfbf0]/70"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#3bb44b] hover:bg-[#61a06c] text-white rounded-full px-8 py-3 transition-colors shadow-sm font-medium",
+      "secondary": "bg-transparent border border-[#8dac96] text-[#233232] hover:bg-[#cfecd6] rounded-full px-8 py-3 transition-colors",
+      "whatsapp_floating": "fixed bottom-6 right-6 z-50 rounded-full p-4 bg-[#3bb44b] text-white shadow-lg hover:bg-[#233232] transition-colors flex items-center justify-center cursor-pointer"
+    },
+    "cards": {
+      "product": "bg-[#ffffff] rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-transform duration-300 border border-[#cfecd6]",
+      "benefit": "bg-[#cfecd6]/50 rounded-2xl p-6 border border-[#cfecd6]"
+    },
+    "navigation": "sticky top-0 z-50 backdrop-blur-md bg-[#edfbf0]/80 border-b border-[#cfecd6]",
+    "age_gate": "Shadcn Alert Dialog, Full screen overlay with dark gradient from #233232 to #4f5958, white text, 18+ verification buttons",
+    "product_modal": "Shadcn Dialog with sticky mobile CTA for 'Shop Now/WhatsApp'",
+    "toast": "Use Sonner for minimal bottom-right toast notifications."
+  },
+  "media": {
+    "logo": "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d6e-8012-e706aac63019/artifacts/xpbtujgt_WhatsApp%20Image%202026-04-15%20at%206.35.09%20PM.jpeg",
+    "images": {
+      "hero_bg": "https://static.prod-images.emergentagent.com/jobs/9174a9c7-fdaa-4d6e-8012-e706aac63019/images/619f0b4aa00fba55781a60546c7fa4c6df2cd705fafebd84726afab6103902c7.png",
+      "product_1": "https://static.prod-images.emergentagent.com/jobs/9174a9c7-fdaa-4d6e-8012-e706aac63019/images/d2d4461c604c199921453d5c2bed97e2fb10e968f1bf2103d2ca1bad60c2a5f1.png",
+      "product_2": "https://static.prod-images.emergentagent.com/jobs/9174a9c7-fdaa-4d6e-8012-e706aac63019/images/ced03eaaec198aa907258bfa6aab090bef0ec81117c87282d124ea6cc728ce53.png",
+      "product_3": "https://static.prod-images.emergentagent.com/jobs/9174a9c7-fdaa-4d6e-8012-e706aac63019/images/c705f154984bd8490fdc6c647d885a812948b62d104b671caaf48b145dea5f7e.png",
+      "product_4_botanical": "https://images.unsplash.com/photo-1760888203135-a0f59ea6dea1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHw0fHxncmVlbiUyMGJvdGFuaWNhbCUyMGxlYWYlMjBwbGFudCUyMGFic3RyYWN0JTIwbWFjcm98ZW58MHx8fHwxNzc2MjY5MDI2fDA&ixlib=rb-4.1.0&q=85",
+      "product_5_leaf": "https://images.unsplash.com/photo-1773294179744-c31bab5410fc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNDR8MHwxfHNlYXJjaHwyfHxncmVlbiUyMGJvdGFuaWNhbCUyMGxlYWYlMjBwbGFudCUyMGFic3RyYWN0JTIwbWFjcm98ZW58MHx8fHwxNzc2MjY5MDI2fDA&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "animations": {
+    "scroll": "Fade-in up on scroll using framer-motion (initial: { opacity: 0, y: 20 }, whileInView: { opacity: 1, y: 0 })",
+    "hero_blob": "Continuous slow rotation and morphing using framer-motion. Mix gradients for the blob.",
+    "hover": "Hover lift for product cards (-translate-y-1)."
+  },
+  "instructions_to_main_agent": [
+    "Install `lucide-react` for icons, `framer-motion` for animations, and `sonner` for toast.",
+    "Use standard HTML + Tailwind for page layouts to maintain creative flexibility.",
+    "Use Shadcn UI primarily for Dialog (Product Modal), Alert Dialog (Age Gate popup), and Accordion (FAQ).",
+    "Ensure the Age Gate Popup cannot be dismissed without explicitly clicking the confirmation button.",
+    "Product filter/sort controls should just update state and filter the 5 static products provided.",
+    "Contact section and floating button should simulate redirect to WhatsApp.",
+    "Add 'data-testid' to all buttons and interactive elements for testing.",
+    "Follow the exact color palette provided in the colors object, derived strictly from the logo."
+  ]
+}
