@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import '@/App.css';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
@@ -7,7 +7,6 @@ import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { usePageTracking, initGA } from '@/components/GoogleAnalytics';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import AgeGate from '@/components/AgeGate';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
 import HomePage from '@/pages/HomePage';
 import ProductsPage from '@/pages/ProductsPage';
@@ -27,14 +26,7 @@ function ScrollToTop() {
   return null;
 }
 
-function AgeGateWrapper({ ageVerified, onConfirm }) {
-  const location = useLocation();
-  const isAdmin = location.pathname.startsWith('/admin');
-  if (isAdmin) return null;
-  return <AgeGate open={!ageVerified} onConfirm={onConfirm} />;
-}
-
-function AppContent({ ageVerified, onAgeConfirm }) {
+function AppContent() {
   usePageTracking();
   const scrollRef = useScrollReveal();
   const location = useLocation();
@@ -43,7 +35,6 @@ function AppContent({ ageVerified, onAgeConfirm }) {
   return (
     <div ref={scrollRef} className="min-h-screen flex flex-col">
       <ScrollToTop />
-      <AgeGateWrapper ageVerified={ageVerified} onConfirm={onAgeConfirm} />
       {!isAdmin && <Navbar />}
       <main className="flex-1">
         <Routes>
@@ -67,25 +58,16 @@ function AppContent({ ageVerified, onAgeConfirm }) {
 }
 
 function App() {
-  const [ageVerified, setAgeVerified] = useState(false);
-
   useEffect(() => {
-    const verified = sessionStorage.getItem('ja_age_verified');
-    if (verified === 'true') setAgeVerified(true);
     initGA();
   }, []);
-
-  const handleAgeConfirm = () => {
-    setAgeVerified(true);
-    sessionStorage.setItem('ja_age_verified', 'true');
-  };
 
   return (
     <CartProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-[#edfbf0]">
           <Toaster position="bottom-right" theme="light" toastOptions={{ style: { background: '#ffffff', color: '#233232', border: '1px solid #cfecd6' } }} />
-          <AppContent ageVerified={ageVerified} onAgeConfirm={handleAgeConfirm} />
+          <AppContent />
         </div>
       </BrowserRouter>
     </CartProvider>

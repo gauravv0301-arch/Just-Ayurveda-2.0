@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, MessageCircle, Star, Leaf, FlaskConical, BookOpen, ChevronRight } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Star, Leaf, FlaskConical, BookOpen, ChevronRight, ShoppingCart } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,6 +42,12 @@ export default function ProductDetailPage() {
   );
 
   const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
+
+  const handleAddToCart = () => {
+    addToCart(product, 1);
+    trackEvent('add_to_cart', { product_name: product.name, price: product.price });
+    toast.success(`${product.name} added to cart!`, { description: 'View your cart to checkout.' });
+  };
 
   const handleBuyNow = () => {
     addToCart(product, 1);
@@ -96,6 +102,10 @@ export default function ProductDetailPage() {
             </div>
 
             <div className="flex gap-3 mt-8">
+              <button data-testid="product-add-to-cart-btn" onClick={handleAddToCart}
+                className="bg-white border-2 border-[#3bb44b] text-[#3bb44b] rounded-full py-3.5 px-6 text-base font-semibold flex items-center justify-center gap-2 hover:bg-[#3bb44b]/5 transition-colors btn-hover-scale">
+                <ShoppingCart className="w-5 h-5" /> Add to Cart
+              </button>
               <button data-testid="product-buy-now-btn" onClick={handleBuyNow}
                 className="flex-1 bg-cta-gradient text-white rounded-full py-3.5 text-base font-semibold flex items-center justify-center gap-2 btn-hover-scale shadow-lg shadow-[#3bb44b]/20">
                 <ShoppingBag className="w-5 h-5" /> Buy Now

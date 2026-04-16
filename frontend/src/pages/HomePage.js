@@ -6,12 +6,14 @@ import HeroSection from '@/components/HeroSection';
 import TrustBadges from '@/components/TrustBadges';
 import BenefitsSection from '@/components/BenefitsSection';
 import ProductCard from '@/components/ProductCard';
+import ProductQuickView from '@/components/ProductQuickView';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function HomePage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/products?sort=popularity`).then(res => { setProducts(res.data.slice(0, 3)); setLoading(false); }).catch(() => setLoading(false));
@@ -22,7 +24,6 @@ export default function HomePage() {
       <HeroSection />
       <TrustBadges />
 
-      {/* Featured Products */}
       <section className="py-16 md:py-24 bg-[#edfbf0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12 scroll-reveal">
@@ -31,7 +32,9 @@ export default function HomePage() {
           </div>
           {!loading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-              {products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+              {products.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} onQuickView={setQuickViewProduct} />
+              ))}
             </div>
           )}
           <div className="text-center mt-12 scroll-reveal">
@@ -45,11 +48,10 @@ export default function HomePage() {
 
       <BenefitsSection />
 
-      {/* CTA Section */}
       <section className="py-16 md:py-24 bg-dark-gradient text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center scroll-reveal">
           <h2 className="text-3xl md:text-4xl font-semibold font-['Outfit'] mb-4">Ready to Transform Your Wellness?</h2>
-          <p className="text-[#8dac96] text-base md:text-lg mb-8 leading-relaxed">Join thousands of men who trust Just Ayurveda for their daily vitality needs. Premium products, discreet delivery, expert support.</p>
+          <p className="text-[#8dac96] text-base md:text-lg mb-8 leading-relaxed">Join thousands of men who trust Just Ayurveda for their daily vitality needs.</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/products" className="bg-[#3bb44b] hover:bg-[#61a06c] text-white rounded-full px-8 py-3.5 font-semibold btn-hover-scale">
               Browse Products
@@ -61,6 +63,12 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ProductQuickView
+        product={quickViewProduct}
+        open={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+      />
     </div>
   );
 }

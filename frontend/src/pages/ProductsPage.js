@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import ProductCard from '@/components/ProductCard';
+import ProductQuickView from '@/components/ProductQuickView';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -13,6 +14,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('popularity');
   const [category, setCategory] = useState('all');
+  const [quickViewProduct, setQuickViewProduct] = useState(null);
   const searchQuery = searchParams.get('search') || '';
 
   useEffect(() => {
@@ -24,19 +26,17 @@ export default function ProductsPage() {
     axios.get(`${API}/products?${params.toString()}`).then(res => { setProducts(res.data); setLoading(false); }).catch(() => setLoading(false));
   }, [searchQuery, sortBy, category]);
 
-  const categories = ['all', ...new Set(products.map(p => p.category))];
+  const categories = ['all', ...new Set(products.map(p => p.category).filter(Boolean))];
 
   return (
     <div className="pt-20 md:pt-24 pb-16 min-h-screen bg-[#edfbf0]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-12">
           <p className="text-sm uppercase tracking-[0.2em] text-[#8dac96] font-medium mb-3">Our Collection</p>
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-[#233232] font-['Outfit']">Premium Wellness Products</h1>
           <p className="mt-4 text-base text-[#4f5958] max-w-xl mx-auto">Carefully crafted Ayurvedic formulations for men's vitality, strength, and daily wellness.</p>
         </div>
 
-        {/* Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger data-testid="category-filter" className="w-36 rounded-full bg-white border-[#cfecd6] text-[#233232] text-sm h-10">
@@ -84,10 +84,18 @@ export default function ProductsPage() {
           <div className="text-center py-16"><p className="text-[#8dac96] text-lg">No products found.</p></div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            {products.map((p, i) => (
+              <ProductCard key={p.id} product={p} index={i} onQuickView={setQuickViewProduct} />
+            ))}
           </div>
         )}
       </div>
+
+      <ProductQuickView
+        product={quickViewProduct}
+        open={!!quickViewProduct}
+        onClose={() => setQuickViewProduct(null)}
+      />
     </div>
   );
 }

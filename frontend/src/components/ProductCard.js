@@ -5,10 +5,17 @@ import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
 
-export default function ProductCard({ product, index }) {
+export default function ProductCard({ product, index, onQuickView }) {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
+
+  const handleCardClick = (e) => {
+    if (onQuickView) {
+      e.preventDefault();
+      onQuickView(product);
+    }
+  };
 
   const handleBuyNow = (e) => {
     e.preventDefault();
@@ -29,20 +36,23 @@ export default function ProductCard({ product, index }) {
 
   return (
     <div data-testid={`product-card-${product.id}`}
-      className={`scroll-reveal scroll-reveal-delay-${(index % 4) + 1} product-card-hover bg-white rounded-2xl overflow-hidden border border-[#cfecd6] shadow-[0_8px_30px_rgb(0,0,0,0.04)]`}>
-      <Link to={`/product/${product.slug}`} data-testid={`product-link-${product.id}`} className="block">
+      className={`scroll-reveal scroll-reveal-delay-${(index % 4) + 1} product-card-hover bg-white rounded-2xl overflow-hidden border border-[#cfecd6] shadow-[0_8px_30px_rgb(0,0,0,0.04)] cursor-pointer`}
+      onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(e); }}
+    >
+      <div className="block" data-testid={`product-link-${product.id}`}>
         <div className="product-img-container aspect-square relative overflow-hidden">
           <img src={product.image} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
           {discount > 0 && (
             <Badge className="absolute top-3 left-3 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">{discount}% OFF</Badge>
           )}
         </div>
-      </Link>
+      </div>
       <div className="p-5">
         <p className="text-xs uppercase tracking-[0.15em] text-[#8dac96] font-medium mb-1">{product.category}</p>
-        <Link to={`/product/${product.slug}`} data-testid={`product-name-${product.id}`}>
-          <h3 className="font-['Outfit'] font-semibold text-[#233232] text-lg leading-snug hover:text-[#3bb44b] transition-colors">{product.name}</h3>
-        </Link>
+        <h3 className="font-['Outfit'] font-semibold text-[#233232] text-lg leading-snug hover:text-[#3bb44b] transition-colors">{product.name}</h3>
         <p className="text-sm text-[#4f5958] mt-2 leading-relaxed line-clamp-2">{product.short_description}</p>
         <div className="flex flex-wrap gap-1.5 mt-3">
           {product.highlights && product.highlights.slice(0, 2).map((h, i) => (

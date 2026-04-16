@@ -233,6 +233,22 @@ async def get_all_orders(admin=Depends(get_current_admin)):
     orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return orders
 
+# ===== CONTACT FORM =====
+class ContactRequest(BaseModel):
+    name: str
+    phone: str
+    email: str
+    message: str
+
+@api_router.post("/contact")
+async def submit_contact(req: ContactRequest):
+    doc = req.model_dump()
+    doc['id'] = str(uuid.uuid4())
+    doc['created_at'] = datetime.now(timezone.utc).isoformat()
+    doc['status'] = 'new'
+    await db.contact_messages.insert_one(doc)
+    return {"message": "Contact form submitted successfully", "id": doc['id']}
+
 # ===== SEED DATA =====
 SEED_PRODUCTS = [
     {
