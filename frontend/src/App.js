@@ -1,124 +1,94 @@
 import { useState, useEffect, useCallback } from 'react';
 import '@/App.css';
-import axios from 'axios';
-import { Toaster, toast } from 'sonner';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import { CartProvider } from '@/context/CartContext';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
-
+import { usePageTracking, initGA } from '@/components/GoogleAnalytics';
 import Navbar from '@/components/Navbar';
-import AgeGate from '@/components/AgeGate';
-import HeroSection from '@/components/HeroSection';
-import TrustBadges from '@/components/TrustBadges';
-import ProductGrid from '@/components/ProductGrid';
-import ProductDetailModal from '@/components/ProductDetailModal';
-import BenefitsSection from '@/components/BenefitsSection';
-import FAQSection from '@/components/FAQSection';
-import ContactSection from '@/components/ContactSection';
 import Footer from '@/components/Footer';
+import AgeGate from '@/components/AgeGate';
 import WhatsAppFloat from '@/components/WhatsAppFloat';
+import HomePage from '@/pages/HomePage';
+import ProductsPage from '@/pages/ProductsPage';
+import ProductDetailPage from '@/pages/ProductDetailPage';
+import AboutPage from '@/pages/AboutPage';
+import ContactPage from '@/pages/ContactPage';
+import FAQPage from '@/pages/FAQPage';
+import CheckoutPage from '@/pages/CheckoutPage';
+import OrderSuccessPage from '@/pages/OrderSuccessPage';
+import OrderFailedPage from '@/pages/OrderFailedPage';
+import AdminLoginPage from '@/pages/AdminLoginPage';
+import AdminDashboardPage from '@/pages/AdminDashboardPage';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
+function AgeGateWrapper({ ageVerified, onConfirm }) {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+  if (isAdmin) return null;
+  return <AgeGate open={!ageVerified} onConfirm={onConfirm} />;
+}
+
+function AppContent({ ageVerified, onAgeConfirm }) {
+  usePageTracking();
+  const scrollRef = useScrollReveal();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
+  return (
+    <div ref={scrollRef} className="min-h-screen flex flex-col">
+      <ScrollToTop />
+      <AgeGateWrapper ageVerified={ageVerified} onConfirm={onAgeConfirm} />
+      {!isAdmin && <Navbar />}
+      <main className="flex-1">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/product/:slug" element={<ProductDetailPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/success" element={<OrderSuccessPage />} />
+          <Route path="/failed" element={<OrderFailedPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+        </Routes>
+      </main>
+      {!isAdmin && <Footer />}
+      {!isAdmin && <WhatsAppFloat />}
+    </div>
+  );
+}
 
 function App() {
   const [ageVerified, setAgeVerified] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const scrollRef = useScrollReveal();
 
-  // Check if age was already verified
   useEffect(() => {
     const verified = sessionStorage.getItem('ja_age_verified');
     if (verified === 'true') setAgeVerified(true);
+    initGA();
   }, []);
-
-  const fetchProducts = useCallback(async (search = '') => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      const response = await axios.get(`${API}/products?${params.toString()}`);
-      setProducts(response.data);
-    } catch (err) {
-      console.error('Failed to fetch products:', err);
-      toast.error('Failed to load products. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
 
   const handleAgeConfirm = () => {
     setAgeVerified(true);
     sessionStorage.setItem('ja_age_verified', 'true');
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    fetchProducts(query);
-  };
-
-  const handleViewDetails = (product) => {
-    setSelectedProduct(product);
-    setModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setTimeout(() => setSelectedProduct(null), 300);
-  };
-
   return (
-    <div className="min-h-screen bg-[#edfbf0]">
-      <Toaster
-        position="bottom-right"
-        theme="light"
-        toastOptions={{
-          style: {
-            background: '#ffffff',
-            color: '#233232',
-            border: '1px solid #cfecd6',
-          },
-        }}
-      />
-
-      {/* Age Gate */}
-      <AgeGate open={!ageVerified} onConfirm={handleAgeConfirm} />
-
-      {/* Main Content */}
-      <div ref={scrollRef}>
-        <Navbar onSearch={handleSearch} />
-
-        <main>
-          <HeroSection />
-          <TrustBadges />
-          <ProductGrid
-            products={products}
-            loading={loading}
-            onViewDetails={handleViewDetails}
-            searchQuery={searchQuery}
-          />
-          <BenefitsSection />
-          <FAQSection />
-          <ContactSection />
-        </main>
-
-        <Footer />
-        <WhatsAppFloat />
-      </div>
-
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        open={modalOpen}
-        onClose={handleCloseModal}
-      />
-    </div>
+    <CartProvider>
+      <BrowserRouter>
+        <div className="min-h-screen bg-[#edfbf0]">
+          <Toaster position="bottom-right" theme="light" toastOptions={{ style: { background: '#ffffff', color: '#233232', border: '1px solid #cfecd6' } }} />
+          <AppContent ageVerified={ageVerified} onAgeConfirm={handleAgeConfirm} />
+        </div>
+      </BrowserRouter>
+    </CartProvider>
   );
 }
 
