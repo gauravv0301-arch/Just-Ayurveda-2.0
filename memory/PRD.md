@@ -1,69 +1,81 @@
 # Just Ayurveda — PRD & Project Memory
 
 ## Original Problem Statement
-Build a premium e-commerce website for "Just Ayurveda" — an age-gated men's Ayurvedic wellness brand. WhatsApp-first ordering model with discreet, professional tone.
+Build a premium e-commerce website for "Just Ayurveda" — an age-gated men's Ayurvedic wellness brand with WhatsApp + Razorpay ordering, admin panel, and multi-page structure.
 
 ## Architecture
 - **Frontend**: React (CRA) + Tailwind CSS + Shadcn UI + Framer Motion
-- **Backend**: FastAPI + MongoDB (Motor async driver)
-- **Database**: MongoDB with `products` collection (5 seeded products)
-- **Deployment**: Kubernetes container (supervisor-managed)
+- **Backend**: FastAPI + MongoDB (Motor) + Razorpay SDK
+- **Database**: MongoDB with `products`, `admin_users`, `orders` collections
+- **Auth**: JWT Bearer tokens for admin panel
+- **Payments**: Razorpay (test mode placeholder keys)
+- **Analytics**: GA4 (placeholder ID)
 
 ## User Personas
-- **Primary**: Men aged 25-45 seeking Ayurvedic wellness supplements
-- **Secondary**: Partners/spouses buying on behalf
+- **Customer**: Men 25-45 seeking Ayurvedic wellness supplements
+- **Admin**: Store owner managing products and viewing orders
 
-## Core Requirements
-- [x] Age gate (18+) popup on first visit
-- [x] Hero section with animated gradient blob, CTAs
-- [x] Trust badges (Discreet Packaging, Fast Support, Secure Ordering)
-- [x] 5 product cards with images, prices, highlights, discount badges
-- [x] Product detail modal (description, ingredients, usage, FAQ, reviews)
+## Pages Implemented (April 16, 2026)
+| Page | Route | Status |
+|------|-------|--------|
+| Home | / | Done |
+| Products | /products | Done |
+| Product Detail | /product/:slug | Done |
+| About Us | /about | Done |
+| Contact | /contact | Done |
+| FAQ | /faq | Done |
+| Checkout | /checkout | Done |
+| Order Success | /success | Done |
+| Order Failed | /failed | Done |
+| Admin Login | /admin/login | Done |
+| Admin Dashboard | /admin/dashboard | Done |
+
+## Features Implemented
+- [x] Multi-page routing with React Router
+- [x] Age gate (18+) with admin bypass
+- [x] Hero section with animated gradient blob
+- [x] Product listing with search, sort, filter
+- [x] Individual product pages with tabs, FAQ, reviews, related products
+- [x] Cart system (localStorage, CartContext)
+- [x] Checkout flow with customer form
+- [x] Razorpay payment integration (placeholder keys)
+- [x] Order success/failure pages
+- [x] Admin login (JWT auth)
+- [x] Admin dashboard (product CRUD, order viewing, stats)
 - [x] WhatsApp integration (pre-filled messages, floating button)
-- [x] Sort (popularity, price, newest) & category filter
-- [x] Search functionality
-- [x] Benefits section (6 benefits)
-- [x] FAQ accordion (7 questions)
-- [x] Contact section with WhatsApp CTA + store details
-- [x] Footer with disclaimer, quick links, WhatsApp CTA
-- [x] Sticky glassmorphism navbar with logo
-- [x] Mobile-responsive (Sheet menu, sticky mobile CTAs)
-- [x] Scroll-reveal animations (IntersectionObserver + MutationObserver)
-- [x] Skeleton loading states for product cards
+- [x] About Us page with brand story
+- [x] FAQ page (8 questions)
+- [x] Contact page with WhatsApp CTA
+- [x] Google Analytics setup (placeholder ID)
+- [x] Sticky glassmorphism navbar with cart badge
+- [x] Responsive design (mobile + desktop)
+- [x] Scroll-reveal animations
+- [x] Skeleton loading states
 - [x] Toast notifications (Sonner)
 
-## What's Been Implemented (April 15, 2026)
-- Full backend API: GET /api/products, GET /api/products/{id}, search/sort/filter
-- 5 seeded products: VitalMax Pro, Ashwagandha Gold, Shilajit Resin Ultra, Kesar Vigor Oil, Endurance Elixir Tonic
-- Complete frontend with 12 components, 1 custom hook
-- Brand color system: #233232, #3bb44b, #61a06c, #8dac96, #cfecd6, #edfbf0
-- Fonts: Outfit (headings), Plus Jakarta Sans (body)
-- Testing: 100% backend, 95% frontend
+## Admin Credentials
+- Email: admin@justayurveda.in
+- Password: admin123
 
-## Product Data
-| ID | Name | Price | Category |
-|----|------|-------|----------|
-| prod-001 | VitalMax Pro Capsules | ₹1,499 | Capsules |
-| prod-002 | Ashwagandha Gold Extract | ₹999 | Capsules |
-| prod-003 | Shilajit Resin Ultra | ₹2,499 | Resin |
-| prod-004 | Kesar Vigor Oil | ₹799 | Oil |
-| prod-005 | Endurance Elixir Tonic | ₹1,799 | Tonic |
+## Testing Results
+- Backend: 100% (22/22 tests passed)
+- Frontend: 95% (minor overlay issues)
 
 ## Prioritized Backlog
-### P0 (Critical) — Done
-- All core features implemented and tested
+### P0 — Done (all critical features)
 
 ### P1 (Next Phase)
-- Admin panel for product CRUD
-- Real product images (replace placeholders)
-- Payment gateway integration (Razorpay/Stripe)
-- Order management system
-- Customer accounts/wishlists
+- Replace Razorpay placeholder keys with real test/live keys
+- Replace GA4 placeholder ID with real Measurement ID
+- Upload real product images
+- Order tracking/history for customers
+- Email notifications on order placement
 
 ### P2 (Future)
+- Customer accounts & wishlists
 - Blog/content section for SEO
-- Product reviews submission form
-- Email newsletter signup
-- Google Analytics / Meta Pixel integration
-- Progressive Web App (PWA) support
+- Reviews submission form
 - Multi-language support (Hindi)
+- PWA support
+- Inventory management in admin
+- Coupon/discount system
