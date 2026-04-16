@@ -1,34 +1,132 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* ===== SCROLL REVEAL ANIMATIONS ===== */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.scroll-reveal-delay-1 { transition-delay: 0.1s; }
+.scroll-reveal-delay-2 { transition-delay: 0.2s; }
+.scroll-reveal-delay-3 { transition-delay: 0.3s; }
+.scroll-reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ===== HERO GRADIENT BLOB ===== */
+@keyframes blob-morph {
+  0%, 100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    transform: rotate(90deg) scale(1.05);
+  }
+  50% {
+    border-radius: 50% 60% 30% 60% / 30% 50% 70% 60%;
+    transform: rotate(180deg) scale(0.95);
+  }
+  75% {
+    border-radius: 60% 30% 60% 40% / 70% 40% 50% 60%;
+    transform: rotate(270deg) scale(1.02);
+  }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+.hero-blob {
+  animation: blob-morph 20s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(59, 180, 75, 0.15) 0%, rgba(97, 160, 108, 0.1) 50%, rgba(207, 236, 214, 0.2) 100%);
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* ===== FLOATING ANIMATION ===== */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
-.App-link {
-    color: #61dafb;
+/* ===== GRADIENT TEXT ===== */
+.gradient-text {
+  background: linear-gradient(135deg, #3bb44b 0%, #61a06c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* ===== SHIMMER FOR SKELETON ===== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #cfecd6 25%, #edfbf0 50%, #cfecd6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===== PULSE FOR WHATSAPP BUTTON ===== */
+@keyframes wa-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 180, 75, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(59, 180, 75, 0); }
+}
+.wa-pulse {
+  animation: wa-pulse 2s infinite;
+}
+
+/* ===== CARD HOVER ===== */
+.product-card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.product-card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(35, 50, 50, 0.08);
+}
+
+/* ===== GRADIENT BACKGROUNDS ===== */
+.bg-hero-gradient {
+  background: linear-gradient(135deg, #edfbf0 0%, #cfecd6 40%, #edfbf0 100%);
+}
+
+.bg-dark-gradient {
+  background: linear-gradient(135deg, #233232 0%, #4f5958 100%);
+}
+
+.bg-cta-gradient {
+  background: linear-gradient(135deg, #3bb44b 0%, #61a06c 100%);
+}
+
+/* ===== BUTTON HOVER SCALE ===== */
+.btn-hover-scale {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-hover-scale:hover {
+  transform: scale(1.03);
+}
+.btn-hover-scale:active {
+  transform: scale(0.98);
+}
+
+/* ===== NAVBAR GLASSMORPHISM ===== */
+.nav-glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(237, 251, 240, 0.85);
+  border-bottom: 1px solid rgba(207, 236, 214, 0.6);
+}
+
+/* ===== AGE GATE OVERLAY ===== */
+.age-gate-bg {
+  background: linear-gradient(135deg, #233232 0%, #4f5958 100%);
+}
+
+/* ===== PRODUCT IMAGE CONTAINER ===== */
+.product-img-container {
+  background: linear-gradient(135deg, #cfecd6 0%, #edfbf0 100%);
+}
+
+/* ===== TRUST BADGE ICON ===== */
+.trust-icon-bg {
+  background: linear-gradient(135deg, #3bb44b 0%, #61a06c 100%);
 }
