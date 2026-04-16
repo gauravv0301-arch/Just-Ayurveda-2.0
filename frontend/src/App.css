@@ -110,10 +110,11 @@
 
 /* ===== NAVBAR GLASSMORPHISM ===== */
 .nav-glass {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  background: rgba(237, 251, 240, 0.85);
-  border-bottom: 1px solid rgba(207, 236, 214, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(237, 251, 240, 0.82);
+  border-bottom: 1px solid rgba(207, 236, 214, 0.7);
+  box-shadow: 0 1px 12px rgba(35, 50, 50, 0.04);
 }
 
 /* ===== AGE GATE OVERLAY ===== */
