@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { MessageCircle, Mail, MapPin, Clock, Send, Loader2, CheckCircle } from 'lucide-react';
+import { MessageCircle, Mail, MapPin, Clock, Send, Loader2, CheckCircle, Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const socialLinks = [
+  { icon: Instagram, href: 'https://instagram.com/justayurveda', label: 'Instagram', color: 'hover:bg-gradient-to-br hover:from-purple-500 hover:to-pink-500' },
+  { icon: Facebook, href: 'https://facebook.com/justayurveda', label: 'Facebook', color: 'hover:bg-blue-600' },
+  { icon: Twitter, href: 'https://x.com/justayurveda', label: 'X (Twitter)', color: 'hover:bg-[#233232]' },
+  { icon: Youtube, href: 'https://youtube.com/@justayurveda', label: 'YouTube', color: 'hover:bg-red-600' },
+  { icon: MessageCircle, href: 'https://wa.me/918874888221', label: 'WhatsApp', color: 'hover:bg-[#3bb44b]' },
+];
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', message: '' });
@@ -108,7 +116,7 @@ export default function ContactPage() {
             )}
           </div>
 
-          {/* Right Column - WhatsApp + Details */}
+          {/* Right Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* WhatsApp Card */}
             <div className="bg-cta-gradient rounded-3xl p-7 text-white relative overflow-hidden">
@@ -124,6 +132,27 @@ export default function ContactPage() {
                   className="inline-flex items-center gap-2 bg-white text-[#3bb44b] rounded-full px-5 py-2.5 font-semibold text-sm btn-hover-scale">
                   <MessageCircle className="w-4 h-4" /> Start Chat
                 </a>
+              </div>
+            </div>
+
+            {/* Connect With Us - Social Icons */}
+            <div className="bg-white rounded-3xl p-7 border border-[#cfecd6]">
+              <h3 className="font-['Outfit'] font-semibold text-[#233232] text-lg mb-4">Connect With Us</h3>
+              <p className="text-sm text-[#4f5958] mb-5 leading-relaxed">Follow us on social media for wellness tips, product updates, and exclusive offers.</p>
+              <div className="flex items-center gap-3">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid={`contact-social-${social.label.toLowerCase().replace(/[\s()]/g, '')}`}
+                    aria-label={social.label}
+                    className={`w-11 h-11 rounded-xl bg-[#cfecd6]/40 flex items-center justify-center text-[#4f5958] hover:text-white ${social.color} hover:scale-110 transition-all duration-200`}
+                  >
+                    <social.icon className="w-5 h-5" />
+                  </a>
+                ))}
               </div>
             </div>
 

@@ -1,20 +1,26 @@
+import { lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 
-const HERO_BG = "https://static.prod-images.emergentagent.com/jobs/9174a9c7-fdaa-4d6e-8012-e706aac63019/images/619f0b4aa00fba55781a60546c7fa4c6df2cd705fafebd84726afab6103902c7.png";
+const Hero3DScene = lazy(() => import('@/components/Hero3DScene'));
 
 export default function HeroSection() {
   const navigate = useNavigate();
 
   return (
     <section id="home" className="relative min-h-[90vh] flex items-center overflow-hidden bg-hero-gradient">
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="hero-blob w-[500px] h-[500px] md:w-[700px] md:h-[700px] opacity-60" />
+      {/* Animated gradient blob (CSS fallback behind 3D) */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 0 }}>
+        <div className="hero-blob w-[500px] h-[500px] md:w-[700px] md:h-[700px] opacity-40" />
       </div>
-      <div className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:block opacity-20">
-        <img src={HERO_BG} alt="" className="w-full h-full object-cover object-center" />
-      </div>
+
+      {/* 3D Scene (desktop only, lazy loaded) */}
+      <Suspense fallback={null}>
+        <Hero3DScene />
+      </Suspense>
+
+      {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
         <div className="max-w-2xl">
           <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
