@@ -242,6 +242,10 @@ class ContactRequest(BaseModel):
 
 @api_router.post("/contact")
 async def submit_contact(req: ContactRequest):
+    if not req.name.strip() or not req.email.strip() or not req.phone.strip() or not req.message.strip():
+        raise HTTPException(400, "All fields are required")
+    if '@' not in req.email or '.' not in req.email.split('@')[-1]:
+        raise HTTPException(400, "Invalid email format")
     doc = req.model_dump()
     doc['id'] = str(uuid.uuid4())
     doc['created_at'] = datetime.now(timezone.utc).isoformat()
