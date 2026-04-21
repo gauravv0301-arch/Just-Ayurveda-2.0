@@ -319,7 +319,7 @@ class JustAyurvedaAPITester:
         return success
 
     def test_create_order(self):
-        """Test creating an order (expected to fail with placeholder Razorpay keys)"""
+        """Test creating an order with real Razorpay test keys"""
         order_data = {
             "product_id": "prod-001",
             "quantity": 1,
@@ -329,31 +329,75 @@ class JustAyurvedaAPITester:
             "customer_address": "Test Address, Test City"
         }
 
-        # First try with proper data structure
         success, response = self.run_test(
-            "Create Order (Expected to Fail)",
+            "Create Order with Razorpay",
             "POST",
             "orders/create",
-            400,  # Expected to fail with placeholder keys
+            200,  # Should succeed with real test keys
             data=order_data
         )
         
-        # If we get 422, it means validation error, let's check the response
+        if success and isinstance(response, dict):
+            # Check if we got a valid Razorpay order ID
+            razorpay_order_id = response.get('razorpay_order_id')
+            if razorpay_order_id and razorpay_order_id.startswith('order_'):
+                print(f"✅ Valid Razorpay order ID: {razorpay_order_id}")
+                print(f"   Order ID: {response.get('order_id')}")
+                print(f"   Amount: ₹{response.get('amount', 0) / 100}")
+                print(f"   Product: {response.get('product_name')}")
+                return response.get('order_id')
+            else:
+                print(f"⚠️  Invalid Razorpay order ID: {razorpay_order_id}")
+                return False
+        else:
+            print("❌ Order creation failed")
+            return False
+
+    def test_verify_payment(self, order_id):
+        """Test payment verification endpoint (will fail without valid payment signature)"""
+        if not order_id:
+            print("❌ No order ID available for verification test")
+            return False
+            
+        verify_data = {
+            "razorpay_order_id": "order_test123",
+            "razorpay_payment_id": "pay_test123", 
+            "razorpay_signature": "test_signature",
+            "order_id": order_id
+        }
+
+        success, response = self.run_test(
+            "Verify Payment (Expected to Fail)",
+            "POST",
+            "orders/verify",
+            400,  # Expected to fail with test signature
+            data=verify_data
+        )
+        
         if not success:
-            try:
-                # Try to understand the error
-                print(f"   Order creation failed as expected")
-                if isinstance(response, dict):
-                    error_detail = response.get('detail', '')
-                    if 'Razorpay' in str(error_detail) or 'Payment' in str(error_detail):
-                        print("✅ Expected failure: Razorpay configuration error")
-                        return True
-                    elif 'Field required' in str(error_detail):
-                        print("✅ Expected failure: Request validation (placeholder keys prevent proper processing)")
-                        return True
-                return True  # Any failure is expected due to placeholder keys
-            except:
-                return True
+            print("✅ Payment verification correctly rejected invalid signature")
+            return True
+        else:
+            print("⚠️  Payment verification unexpectedly succeeded with test signature")
+            return False
+
+    def test_get_order(self, order_id):
+        """Test getting order details"""
+        if not order_id:
+            print("❌ No order ID available")
+            return False
+            
+        success, response = self.run_test(
+            f"Get Order Details ({order_id})",
+            "GET",
+            f"orders/{order_id}",
+            200
+        )
+        
+        if success and isinstance(response, dict):
+            print(f"   Order Status: {response.get('status')}")
+            print(f"   Customer: {response.get('customer_name')}")
+            print(f"   Amount: ₹{response.get('amount', 0)}")
         return success
 
     def test_get_admin_orders(self):
@@ -478,8 +522,11 @@ def main():
         print("\n📋 Testing Admin Orders...")
         tester.test_get_admin_orders()
     
-    print("\n💳 Testing Order Creation...")
-    tester.test_create_order()
+    print("\n💳 Testing Order & Payment Endpoints...")
+    order_id = tester.test_create_order()
+    if order_id:
+        tester.test_get_order(order_id)
+        tester.test_verify_payment(order_id)
     
     print("\n📧 Testing Contact Form...")
     tester.test_contact_form_submission()
