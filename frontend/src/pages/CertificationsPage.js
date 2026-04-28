@@ -20,7 +20,7 @@ const documents = [
       { label: 'Status', value: 'Active' },
     ],
     description: 'Our GST registration ensures that all transactions are fully compliant with Indian tax regulations. Every purchase includes proper tax documentation for your records.',
-    pdfUrl: 'https://customer-assets.emergentagent.com/job_ayurveda-wellness-30/artifacts/exlwevcy_71%20JUST%20AYURVEDA%20%281%29.PDF',
+    pdfUrl: 'https://customer-assets.emergentagent.com/job_ayurveda-wellness-30/artifacts/txr2exc8_GST%20Registration%20Certificate%20-%20Just%20Ayurveda%20%28New%29%20%282%29.pdf',
   },
   {
     id: 'fssai',
