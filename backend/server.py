@@ -62,6 +62,15 @@ async def get_current_admin(credentials: HTTPAuthorizationCredentials = Depends(
     except pyjwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
 
+async def get_optional_customer(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        return None
+    try:
+        p = pyjwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return p if p.get('role') == 'customer' else None
+    except:
+        return None
+
 # ===== MODELS =====
 class LoginRequest(BaseModel):
     email: str
@@ -175,7 +184,7 @@ async def delete_product(product_id: str, admin=Depends(get_current_admin)):
 
 # ===== ORDER ENDPOINTS =====
 @api_router.post("/orders/create")
-async def create_order(req: OrderCreateRequest):
+async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_customer)):
     product = await db.products.find_one({"id": req.product_id}, {"_id": 0})
     if not product:
         raise HTTPException(404, "Product not found")
@@ -199,6 +208,7 @@ async def create_order(req: OrderCreateRequest):
         "customer_phone": req.customer_phone, "customer_address": req.customer_address,
         "razorpay_order_id": razorpay_order_id, "razorpay_payment_id": None,
         "razorpay_signature": None, "status": "pending",
+        "customer_id": customer['sub'] if customer else None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.orders.insert_one(order)
@@ -252,6 +262,186 @@ async def submit_contact(req: ContactRequest):
     doc['status'] = 'new'
     await db.contact_messages.insert_one(doc)
     return {"message": "Contact form submitted successfully", "id": doc['id']}
+
+# ===== CUSTOMER AUTH =====
+class SendOtpRequest(BaseModel):
+    phone: str
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+    name: str = ""
+
+class EmailRegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    phone: str = ""
+
+class EmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class ProfileUpdateRequest(BaseModel):
+    name: str = ""
+    email: str = ""
+
+class AddressRequest(BaseModel):
+    label: str = "Home"
+    house: str
+    street: str
+    landmark: str = ""
+    city: str
+    state: str
+    pincode: str
+    is_default: bool = False
+
+def create_customer_token(cid: str, phone: str = "", email: str = "") -> str:
+    return pyjwt.encode({"sub": cid, "phone": phone, "email": email, "role": "customer", "exp": datetime.now(timezone.utc) + timedelta(days=30)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_customer(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        raise HTTPException(401, "Login required")
+    try:
+        p = pyjwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if p.get('role') != 'customer':
+            raise HTTPException(403, "Customer access required")
+        return p
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(401, "Token expired")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token")
+
+@api_router.post("/customer/send-otp")
+async def send_otp(req: SendOtpRequest):
+    phone = req.phone.strip().replace(" ", "")
+    if len(phone) < 10:
+        raise HTTPException(400, "Invalid phone number")
+    otp = ''.join(random.choices(string.digits, k=6))
+    await db.otps.delete_many({"phone": phone})
+    await db.otps.insert_one({"phone": phone, "otp": otp, "created_at": datetime.now(timezone.utc), "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)})
+    return {"message": "OTP sent successfully", "dev_otp": otp}
+
+@api_router.post("/customer/verify-otp")
+async def verify_otp(req: VerifyOtpRequest):
+    phone = req.phone.strip().replace(" ", "")
+    stored = await db.otps.find_one({"phone": phone, "otp": req.otp, "expires_at": {"$gt": datetime.now(timezone.utc)}})
+    if not stored:
+        raise HTTPException(400, "Invalid or expired OTP")
+    await db.otps.delete_many({"phone": phone})
+    customer = await db.customers.find_one({"phone": phone})
+    is_new = customer is None
+    if is_new:
+        customer = {"id": str(uuid.uuid4()), "phone": phone, "name": req.name or "", "email": "", "addresses": [], "wishlist": [], "created_at": datetime.now(timezone.utc).isoformat()}
+        await db.customers.insert_one(customer)
+    cust = await db.customers.find_one({"phone": phone}, {"_id": 0, "password_hash": 0})
+    token = create_customer_token(cust['id'], phone=phone, email=cust.get('email', ''))
+    return {"token": token, "customer": cust, "is_new": is_new}
+
+@api_router.post("/customer/register-email")
+async def register_email(req: EmailRegisterRequest):
+    if await db.customers.find_one({"email": req.email.lower()}):
+        raise HTTPException(400, "Email already registered")
+    doc = {"id": str(uuid.uuid4()), "phone": req.phone, "name": req.name, "email": req.email.lower(), "password_hash": hash_password(req.password), "addresses": [], "wishlist": [], "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.customers.insert_one(doc)
+    cust = await db.customers.find_one({"id": doc['id']}, {"_id": 0, "password_hash": 0})
+    return {"token": create_customer_token(doc['id'], phone=req.phone, email=req.email.lower()), "customer": cust}
+
+@api_router.post("/customer/login-email")
+async def login_email(req: EmailLoginRequest):
+    customer = await db.customers.find_one({"email": req.email.lower()})
+    if not customer or not customer.get('password_hash') or not verify_password(req.password, customer['password_hash']):
+        raise HTTPException(401, "Invalid email or password")
+    cust = await db.customers.find_one({"id": customer['id']}, {"_id": 0, "password_hash": 0})
+    return {"token": create_customer_token(customer['id'], phone=customer.get('phone', ''), email=req.email.lower()), "customer": cust}
+
+@api_router.get("/customer/me")
+async def get_customer_profile(customer=Depends(get_current_customer)):
+    cust = await db.customers.find_one({"id": customer['sub']}, {"_id": 0, "password_hash": 0})
+    if not cust:
+        raise HTTPException(404, "Customer not found")
+    return cust
+
+@api_router.put("/customer/profile")
+async def update_customer_profile(req: ProfileUpdateRequest, customer=Depends(get_current_customer)):
+    updates = {}
+    if req.name:
+        updates['name'] = req.name
+    if req.email:
+        updates['email'] = req.email.lower()
+    if updates:
+        await db.customers.update_one({"id": customer['sub']}, {"$set": updates})
+    cust = await db.customers.find_one({"id": customer['sub']}, {"_id": 0, "password_hash": 0})
+    return cust
+
+@api_router.get("/customer/addresses")
+async def get_addresses(customer=Depends(get_current_customer)):
+    cust = await db.customers.find_one({"id": customer['sub']}, {"_id": 0})
+    return cust.get('addresses', [])
+
+@api_router.post("/customer/addresses")
+async def add_address(req: AddressRequest, customer=Depends(get_current_customer)):
+    addr = req.model_dump()
+    addr['id'] = str(uuid.uuid4())
+    cust = await db.customers.find_one({"id": customer['sub']})
+    addresses = cust.get('addresses', [])
+    if not addresses or req.is_default:
+        for a in addresses:
+            a['is_default'] = False
+        addr['is_default'] = True
+    addresses.append(addr)
+    await db.customers.update_one({"id": customer['sub']}, {"$set": {"addresses": addresses}})
+    return addr
+
+@api_router.put("/customer/addresses/{address_id}")
+async def update_address(address_id: str, req: AddressRequest, customer=Depends(get_current_customer)):
+    cust = await db.customers.find_one({"id": customer['sub']})
+    addresses = cust.get('addresses', [])
+    for a in addresses:
+        if a['id'] == address_id:
+            a.update(req.model_dump())
+            a['id'] = address_id
+            if req.is_default:
+                for o in addresses:
+                    o['is_default'] = o['id'] == address_id
+            break
+    else:
+        raise HTTPException(404, "Address not found")
+    await db.customers.update_one({"id": customer['sub']}, {"$set": {"addresses": addresses}})
+    return next(a for a in addresses if a['id'] == address_id)
+
+@api_router.delete("/customer/addresses/{address_id}")
+async def delete_address(address_id: str, customer=Depends(get_current_customer)):
+    cust = await db.customers.find_one({"id": customer['sub']})
+    addresses = [a for a in cust.get('addresses', []) if a['id'] != address_id]
+    if addresses and not any(a.get('is_default') for a in addresses):
+        addresses[0]['is_default'] = True
+    await db.customers.update_one({"id": customer['sub']}, {"$set": {"addresses": addresses}})
+    return {"message": "Address deleted"}
+
+@api_router.put("/customer/addresses/{address_id}/default")
+async def set_default_address(address_id: str, customer=Depends(get_current_customer)):
+    cust = await db.customers.find_one({"id": customer['sub']})
+    addresses = cust.get('addresses', [])
+    for a in addresses:
+        a['is_default'] = a['id'] == address_id
+    await db.customers.update_one({"id": customer['sub']}, {"$set": {"addresses": addresses}})
+    return {"message": "Default address updated"}
+
+@api_router.get("/customer/orders")
+async def get_customer_orders(customer=Depends(get_current_customer)):
+    orders = await db.orders.find({"customer_id": customer['sub']}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return orders
+
+@api_router.post("/customer/wishlist/{product_id}")
+async def add_to_wishlist(product_id: str, customer=Depends(get_current_customer)):
+    await db.customers.update_one({"id": customer['sub']}, {"$addToSet": {"wishlist": product_id}})
+    return {"message": "Added to wishlist"}
+
+@api_router.delete("/customer/wishlist/{product_id}")
+async def remove_from_wishlist(product_id: str, customer=Depends(get_current_customer)):
+    await db.customers.update_one({"id": customer['sub']}, {"$pull": {"wishlist": product_id}})
+    return {"message": "Removed from wishlist"}
 
 # ===== SEED DATA =====
 SEED_PRODUCTS = [

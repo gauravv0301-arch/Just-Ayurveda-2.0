@@ -463,6 +463,197 @@ class JustAyurvedaAPITester:
             print("⚠️  Contact form accepted invalid data - validation may need improvement")
             return True  # Still consider it a pass since the endpoint works
 
+    # Customer Authentication Methods
+    def test_customer_send_otp(self, phone):
+        """Test sending OTP to customer phone"""
+        success, response = self.run_test(
+            "Customer Send OTP",
+            "POST",
+            "customer/send-otp",
+            200,
+            data={"phone": phone}
+        )
+        if success and isinstance(response, dict):
+            dev_otp = response.get('dev_otp')
+            print(f"   Dev OTP: {dev_otp}")
+            return dev_otp
+        return None
+
+    def test_customer_verify_otp(self, phone, otp, name="Test Customer"):
+        """Test verifying customer OTP"""
+        success, response = self.run_test(
+            "Customer Verify OTP",
+            "POST",
+            "customer/verify-otp",
+            200,
+            data={"phone": phone, "otp": otp, "name": name}
+        )
+        if success and isinstance(response, dict):
+            token = response.get('token')
+            customer = response.get('customer', {})
+            print(f"   Customer ID: {customer.get('id', 'Unknown')}")
+            print(f"   Customer Name: {customer.get('name', 'Unknown')}")
+            print(f"   Is New: {response.get('is_new', False)}")
+            return token
+        return None
+
+    def test_customer_email_register(self, name, email, password, phone=""):
+        """Test customer email registration"""
+        success, response = self.run_test(
+            "Customer Email Registration",
+            "POST",
+            "customer/register-email",
+            200,
+            data={"name": name, "email": email, "password": password, "phone": phone}
+        )
+        if success and isinstance(response, dict):
+            token = response.get('token')
+            customer = response.get('customer', {})
+            print(f"   Customer ID: {customer.get('id', 'Unknown')}")
+            print(f"   Customer Email: {customer.get('email', 'Unknown')}")
+            return token
+        return None
+
+    def test_customer_email_login(self, email, password):
+        """Test customer email login"""
+        success, response = self.run_test(
+            "Customer Email Login",
+            "POST",
+            "customer/login-email",
+            200,
+            data={"email": email, "password": password}
+        )
+        if success and isinstance(response, dict):
+            token = response.get('token')
+            customer = response.get('customer', {})
+            print(f"   Customer ID: {customer.get('id', 'Unknown')}")
+            print(f"   Customer Email: {customer.get('email', 'Unknown')}")
+            return token
+        return None
+
+    def test_customer_profile(self, token):
+        """Test getting customer profile"""
+        headers = {'Authorization': f'Bearer {token}'}
+        success, response = self.run_test(
+            "Get Customer Profile",
+            "GET",
+            "customer/me",
+            200,
+            headers=headers
+        )
+        if success and isinstance(response, dict):
+            print(f"   Name: {response.get('name', 'Unknown')}")
+            print(f"   Phone: {response.get('phone', 'Unknown')}")
+            print(f"   Email: {response.get('email', 'Unknown')}")
+            print(f"   Addresses: {len(response.get('addresses', []))}")
+            print(f"   Wishlist: {len(response.get('wishlist', []))}")
+        return success
+
+    def test_customer_update_profile(self, token, name="", email=""):
+        """Test updating customer profile"""
+        headers = {'Authorization': f'Bearer {token}'}
+        data = {}
+        if name:
+            data['name'] = name
+        if email:
+            data['email'] = email
+            
+        success, response = self.run_test(
+            "Update Customer Profile",
+            "PUT",
+            "customer/profile",
+            200,
+            data=data,
+            headers=headers
+        )
+        if success and isinstance(response, dict):
+            print(f"   Updated Name: {response.get('name', 'Unknown')}")
+            print(f"   Updated Email: {response.get('email', 'Unknown')}")
+        return success
+
+    def test_customer_add_address(self, token):
+        """Test adding customer address"""
+        headers = {'Authorization': f'Bearer {token}'}
+        address_data = {
+            "label": "Home",
+            "house": "123 Test House",
+            "street": "Test Street",
+            "landmark": "Near Test Mall",
+            "city": "Test City",
+            "state": "Delhi (NCT)",
+            "pincode": "110001",
+            "is_default": True
+        }
+        
+        success, response = self.run_test(
+            "Add Customer Address",
+            "POST",
+            "customer/addresses",
+            200,
+            data=address_data,
+            headers=headers
+        )
+        if success and isinstance(response, dict):
+            print(f"   Address ID: {response.get('id', 'Unknown')}")
+            print(f"   Label: {response.get('label', 'Unknown')}")
+            print(f"   Is Default: {response.get('is_default', False)}")
+            return response.get('id')
+        return None
+
+    def test_customer_get_addresses(self, token):
+        """Test getting customer addresses"""
+        headers = {'Authorization': f'Bearer {token}'}
+        success, response = self.run_test(
+            "Get Customer Addresses",
+            "GET",
+            "customer/addresses",
+            200,
+            headers=headers
+        )
+        if success and isinstance(response, list):
+            print(f"   Found {len(response)} addresses")
+            for addr in response:
+                print(f"   - {addr.get('label', 'Unknown')}: {addr.get('house', '')}, {addr.get('city', '')}")
+        return success
+
+    def test_customer_orders(self, token):
+        """Test getting customer orders"""
+        headers = {'Authorization': f'Bearer {token}'}
+        success, response = self.run_test(
+            "Get Customer Orders",
+            "GET",
+            "customer/orders",
+            200,
+            headers=headers
+        )
+        if success and isinstance(response, list):
+            print(f"   Found {len(response)} orders")
+        return success
+
+    def test_customer_wishlist_operations(self, token, product_id="prod-001"):
+        """Test customer wishlist operations"""
+        headers = {'Authorization': f'Bearer {token}'}
+        
+        # Add to wishlist
+        success1, _ = self.run_test(
+            "Add to Wishlist",
+            "POST",
+            f"customer/wishlist/{product_id}",
+            200,
+            headers=headers
+        )
+        
+        # Remove from wishlist
+        success2, _ = self.run_test(
+            "Remove from Wishlist",
+            "DELETE",
+            f"customer/wishlist/{product_id}",
+            200,
+            headers=headers
+        )
+        
+        return success1 and success2
+
 def main():
     print("🧪 Starting Just Ayurveda API Tests")
     print("=" * 50)
@@ -531,6 +722,39 @@ def main():
     print("\n📧 Testing Contact Form...")
     tester.test_contact_form_submission()
     tester.test_contact_form_validation()
+    
+    print("\n👤 Testing Customer Authentication...")
+    # Test Phone OTP Flow
+    test_phone = f"9876543{datetime.now().strftime('%H%M')}"
+    dev_otp = tester.test_customer_send_otp(test_phone)
+    customer_token = None
+    
+    if dev_otp:
+        customer_token = tester.test_customer_verify_otp(test_phone, dev_otp, "Test Customer")
+        
+        if customer_token:
+            print("\n🔐 Testing Customer Profile Operations...")
+            tester.test_customer_profile(customer_token)
+            tester.test_customer_update_profile(customer_token, "Updated Test Customer", "updated@test.com")
+            
+            print("\n🏠 Testing Customer Address Operations...")
+            address_id = tester.test_customer_add_address(customer_token)
+            tester.test_customer_get_addresses(customer_token)
+            
+            print("\n📦 Testing Customer Orders & Wishlist...")
+            tester.test_customer_orders(customer_token)
+            tester.test_customer_wishlist_operations(customer_token)
+    
+    # Test Email Registration/Login Flow
+    print("\n📧 Testing Customer Email Authentication...")
+    test_email = f"test{datetime.now().strftime('%H%M%S')}@example.com"
+    email_token = tester.test_customer_email_register("Email Test User", test_email, "testpass123", test_phone)
+    
+    if email_token:
+        # Test email login
+        login_token = tester.test_customer_email_login(test_email, "testpass123")
+        if login_token:
+            print("   ✅ Email login flow successful")
     
     # Print results
     print("\n" + "=" * 50)

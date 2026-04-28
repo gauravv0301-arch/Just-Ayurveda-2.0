@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, Trash2, Plus, Minus, Loader2, MapPin } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, Loader2, MapPin, User, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -36,6 +38,7 @@ const inputCls = (hasError) =>
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { items, updateQuantity, removeFromCart, clearCart, getTotal } = useCart();
+  const { isLoggedIn, customer, authHeaders } = useCustomer();
   const defaultForm = { name: '', email: '', phone: '', house: '', street: '', landmark: '', city: '', state: '', pincode: '' };
   const [form, setForm] = useState(() => {
     try {
@@ -46,8 +49,33 @@ export default function CheckoutPage() {
   });
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(false);
+  const [selectedAddrId, setSelectedAddrId] = useState(null);
   const [pinLoading, setPinLoading] = useState(false);
   const total = getTotal();
+  const savedAddresses = customer?.addresses || [];
+
+  // Pre-fill from customer profile
+  useEffect(() => {
+    if (isLoggedIn && customer) {
+      setForm(prev => ({
+        ...prev,
+        name: prev.name || customer.name || '',
+        email: prev.email || customer.email || '',
+        phone: prev.phone || customer.phone || '',
+      }));
+      const defaultAddr = savedAddresses.find(a => a.is_default);
+      if (defaultAddr && !selectedAddrId) {
+        setSelectedAddrId(defaultAddr.id);
+        setForm(prev => ({ ...prev, house: defaultAddr.house, street: defaultAddr.street, landmark: defaultAddr.landmark || '', city: defaultAddr.city, state: defaultAddr.state, pincode: defaultAddr.pincode }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, customer]);
+
+  const selectAddress = (addr) => {
+    setSelectedAddrId(addr.id);
+    setForm(prev => ({ ...prev, house: addr.house, street: addr.street, landmark: addr.landmark || '', city: addr.city, state: addr.state, pincode: addr.pincode }));
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -118,11 +146,12 @@ export default function CheckoutPage() {
 
     try {
       const item = items[0];
+      const headers = isLoggedIn ? authHeaders() : {};
       const { data } = await axios.post(`${API}/orders/create`, {
         product_id: item.product.id, quantity: item.quantity,
         customer_name: form.name, customer_email: form.email,
         customer_phone: form.phone, customer_address: buildAddress(),
-      });
+      }, { headers });
 
       const loaded = await loadRazorpayScript();
       if (!loaded) { toast.error('Failed to load payment gateway'); setProcessing(false); return; }
@@ -176,6 +205,33 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
           {/* Form */}
           <div className="lg:col-span-3 space-y-5">
+            {/* Login Prompt / Saved Address Selection */}
+            {!isLoggedIn ? (
+              <div className="bg-[#cfecd6]/20 rounded-2xl p-4 border border-[#cfecd6] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-[#3bb44b]" />
+                  <p className="text-sm text-[#233232]">Have an account? <Link to="/auth?redirect=/checkout" className="text-[#3bb44b] font-semibold hover:underline">Login</Link> for saved addresses</p>
+                </div>
+              </div>
+            ) : savedAddresses.length > 0 && (
+              <div className="bg-white rounded-2xl p-5 border border-[#cfecd6]">
+                <h2 className="font-['Outfit'] font-semibold text-[#233232] text-base mb-3">Saved Addresses</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedAddresses.map(a => (
+                    <button key={a.id} onClick={() => selectAddress(a)} data-testid={`select-addr-${a.id}`}
+                      className={`text-left p-3 rounded-xl border transition-colors ${selectedAddrId === a.id ? 'border-[#3bb44b] bg-[#3bb44b]/5 ring-1 ring-[#3bb44b]/20' : 'border-[#cfecd6] hover:bg-[#cfecd6]/20'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge className="text-xs bg-[#cfecd6]/40 text-[#4f5958] border-[#cfecd6]">{a.label}</Badge>
+                        {selectedAddrId === a.id && <Check className="w-4 h-4 text-[#3bb44b]" />}
+                      </div>
+                      <p className="text-sm text-[#233232] font-medium">{a.house}, {a.street}</p>
+                      <p className="text-xs text-[#4f5958]">{a.city}, {a.state} — {a.pincode}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Personal Details */}
             <div className="bg-white rounded-2xl p-6 border border-[#cfecd6]">
               <h2 className="font-['Outfit'] font-semibold text-[#233232] text-lg mb-5">Personal Details</h2>

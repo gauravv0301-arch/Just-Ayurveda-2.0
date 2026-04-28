@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Menu, X, ShoppingBag } from 'lucide-react';
+import { Search, Menu, X, ShoppingBag, User } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d6e-8012-e706aac63019/artifacts/xpbtujgt_WhatsApp%20Image%202026-04-15%20at%206.35.09%20PM.jpeg";
 
@@ -23,6 +24,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { getCount } = useCart();
+  const { isLoggedIn, customer } = useCustomer();
   const cartCount = getCount();
 
   useEffect(() => {
@@ -79,6 +81,17 @@ export default function Navbar() {
               )}
             </Link>
 
+            {isLoggedIn ? (
+              <Link to="/account" data-testid="account-btn" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#cfecd6]/40 text-[#233232] hover:bg-[#cfecd6] transition-colors text-sm font-medium">
+                <User className="w-4 h-4 text-[#3bb44b]" />
+                <span className="max-w-[80px] truncate">{customer?.name || 'Account'}</span>
+              </Link>
+            ) : (
+              <Link to="/auth" data-testid="login-btn" className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-full bg-cta-gradient text-white text-sm font-medium btn-hover-scale">
+                <User className="w-4 h-4" /> Login
+              </Link>
+            )}
+
             <div className="md:hidden">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                 <SheetTrigger asChild>
@@ -95,9 +108,18 @@ export default function Navbar() {
                       </Link>
                     ))}
                     <a href="https://wa.me/918874888221" target="_blank" rel="noopener noreferrer" data-testid="mobile-whatsapp-btn"
-                      className="mt-4 flex items-center justify-center gap-2 bg-[#3bb44b] text-white rounded-full py-3 px-6 font-medium text-sm btn-hover-scale">
+                      className="mt-2 flex items-center justify-center gap-2 bg-[#3bb44b] text-white rounded-full py-3 px-6 font-medium text-sm btn-hover-scale">
                       Chat on WhatsApp
                     </a>
+                    {isLoggedIn ? (
+                      <Link to="/account" className="flex items-center justify-center gap-2 border border-[#cfecd6] text-[#233232] rounded-full py-3 px-6 font-medium text-sm" onClick={() => setMobileOpen(false)}>
+                        <User className="w-4 h-4" /> My Account
+                      </Link>
+                    ) : (
+                      <Link to="/auth" className="flex items-center justify-center gap-2 border border-[#cfecd6] text-[#233232] rounded-full py-3 px-6 font-medium text-sm" onClick={() => setMobileOpen(false)}>
+                        <User className="w-4 h-4" /> Login / Sign Up
+                      </Link>
+                    )}
                   </div>
                 </SheetContent>
               </Sheet>

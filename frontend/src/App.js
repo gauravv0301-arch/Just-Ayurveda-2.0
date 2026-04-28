@@ -3,6 +3,7 @@ import '@/App.css';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { CartProvider } from '@/context/CartContext';
+import { CustomerProvider } from '@/context/CustomerContext';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { usePageTracking, initGA } from '@/components/GoogleAnalytics';
 import Navbar from '@/components/Navbar';
@@ -20,6 +21,8 @@ import OrderFailedPage from '@/pages/OrderFailedPage';
 import AdminLoginPage from '@/pages/AdminLoginPage';
 import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import CertificationsPage from '@/pages/CertificationsPage';
+import AuthPage from '@/pages/AuthPage';
+import AccountPage from '@/pages/AccountPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -46,6 +49,8 @@ function AppContent() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/certifications" element={<CertificationsPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/success" element={<OrderSuccessPage />} />
           <Route path="/failed" element={<OrderFailedPage />} />
@@ -65,6 +70,7 @@ function App() {
   }, []);
 
   return (
+    <CustomerProvider>
     <CartProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-[#edfbf0]">
@@ -73,6 +79,7 @@ function App() {
         </div>
       </BrowserRouter>
     </CartProvider>
+    </CustomerProvider>
   );
 }
 
