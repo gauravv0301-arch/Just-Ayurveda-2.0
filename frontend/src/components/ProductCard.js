@@ -1,14 +1,36 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle, ShoppingBag } from 'lucide-react';
+import { MessageCircle, ShoppingBag, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
+import axios from 'axios';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function ProductCard({ product, index, onQuickView }) {
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isLoggedIn, customer, authHeaders, refreshProfile } = useCustomer();
   const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
+  const isWished = isLoggedIn && customer?.wishlist?.includes(product.id);
+
+  const toggleWishlist = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isLoggedIn) { toast.info('Login to save to wishlist'); navigate('/auth?redirect=/products'); return; }
+    try {
+      if (isWished) {
+        await axios.delete(`${API}/customer/wishlist/${product.id}`, { headers: authHeaders() });
+        toast.success('Removed from wishlist');
+      } else {
+        await axios.post(`${API}/customer/wishlist/${product.id}`, {}, { headers: authHeaders() });
+        toast.success('Added to wishlist');
+      }
+      refreshProfile();
+    } catch { toast.error('Failed to update wishlist'); }
+  };
 
   const handleCardClick = (e) => {
     if (onQuickView) {
@@ -48,6 +70,10 @@ export default function ProductCard({ product, index, onQuickView }) {
           {discount > 0 && (
             <Badge className="absolute top-3 left-3 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">{discount}% OFF</Badge>
           )}
+          <button data-testid={`wishlist-btn-${product.id}`} onClick={toggleWishlist}
+            className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${isWished ? 'bg-red-500 text-white shadow-lg' : 'bg-white/80 text-[#8dac96] hover:text-red-500 hover:bg-white shadow-md'}`}>
+            <Heart className={`w-4 h-4 ${isWished ? 'fill-current' : ''}`} />
+          </button>
         </div>
       </div>
       <div className="p-5">

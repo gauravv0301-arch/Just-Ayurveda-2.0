@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, MessageCircle, Star, Leaf, FlaskConical, BookOpen, ChevronRight, ShoppingCart } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Star, Leaf, FlaskConical, BookOpen, ChevronRight, ShoppingCart, Heart } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
 import ProductCard from '@/components/ProductCard';
 
@@ -16,6 +17,7 @@ export default function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isLoggedIn, customer, authHeaders, refreshProfile } = useCustomer();
   const [product, setProduct] = useState(null);
   const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,21 @@ export default function ProductDetailPage() {
     window.open(`https://wa.me/918874888221?text=${msg}`, '_blank');
   };
 
+  const isWished = isLoggedIn && customer?.wishlist?.includes(product.id);
+  const toggleWishlist = async () => {
+    if (!isLoggedIn) { toast.info('Login to save to wishlist'); navigate('/auth?redirect=/product/' + slug); return; }
+    try {
+      if (isWished) {
+        await axios.delete(`${API}/customer/wishlist/${product.id}`, { headers: authHeaders() });
+        toast.success('Removed from wishlist');
+      } else {
+        await axios.post(`${API}/customer/wishlist/${product.id}`, {}, { headers: authHeaders() });
+        toast.success('Added to wishlist');
+      }
+      refreshProfile();
+    } catch { toast.error('Failed to update wishlist'); }
+  };
+
   const tabs = [
     { id: 'description', label: 'About', icon: BookOpen, content: product.description },
     { id: 'ingredients', label: 'Ingredients', icon: Leaf, content: product.ingredients },
@@ -90,6 +107,14 @@ export default function ProductDetailPage() {
           <div className="flex flex-col">
             <p className="text-xs uppercase tracking-[0.15em] text-[#8dac96] font-medium mb-2">{product.category}</p>
             <h1 className="text-3xl md:text-4xl font-semibold text-[#233232] font-['Outfit'] leading-tight">{product.name}</h1>
+
+            {/* Wishlist button */}
+            <button data-testid="product-wishlist-btn" onClick={toggleWishlist}
+              className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${isWished ? 'bg-red-500/10 text-red-500 border border-red-200' : 'bg-[#cfecd6]/30 text-[#4f5958] border border-[#cfecd6] hover:text-red-500'}`}>
+              <Heart className={`w-4 h-4 ${isWished ? 'fill-current' : ''}`} />
+              {isWished ? 'In Wishlist' : 'Add to Wishlist'}
+            </button>
+
             <p className="text-base text-[#4f5958] mt-3 leading-relaxed">{product.short_description}</p>
 
             <div className="flex items-baseline gap-3 mt-6">

@@ -34,7 +34,11 @@ export default function AuthPage() {
     try {
       const { data } = await axios.post(`${API}/customer/send-otp`, { phone });
       setOtpStep('otp');
-      toast.success('OTP sent!', { description: `Dev OTP: ${data.dev_otp}` });
+      if (data.dev_otp) {
+        toast.success('OTP sent!', { description: `Dev OTP: ${data.dev_otp}` });
+      } else {
+        toast.success('OTP sent to your phone!');
+      }
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Failed to send OTP');
     } finally { setLoading(false); }

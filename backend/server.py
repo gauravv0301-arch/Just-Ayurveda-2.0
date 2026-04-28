@@ -320,7 +320,23 @@ async def send_otp(req: SendOtpRequest):
     otp = ''.join(random.choices(string.digits, k=6))
     await db.otps.delete_many({"phone": phone})
     await db.otps.insert_one({"phone": phone, "otp": otp, "created_at": datetime.now(timezone.utc), "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)})
-    return {"message": "OTP sent successfully", "dev_otp": otp}
+
+    # ===== SMS INTEGRATION POINT =====
+    # To enable real SMS, set OTP_MODE=production in .env and integrate your SMS provider:
+    #
+    # Example with Twilio:
+    #   from twilio.rest import Client
+    #   twilio_client = Client(os.environ['TWILIO_ACCOUNT_SID'], os.environ['TWILIO_AUTH_TOKEN'])
+    #   twilio_client.messages.create(body=f"Your Just Ayurveda OTP is {otp}", from_=os.environ['TWILIO_PHONE'], to=f"+91{phone}")
+    #
+    # Example with MSG91:
+    #   requests.post("https://control.msg91.com/api/v5/otp", json={"mobile": f"91{phone}", "otp": otp, ...}, headers={"authkey": os.environ['MSG91_AUTH_KEY']})
+
+    otp_mode = os.environ.get('OTP_MODE', 'dev')
+    response = {"message": "OTP sent successfully"}
+    if otp_mode == 'dev':
+        response["dev_otp"] = otp  # Only exposed in dev mode — remove in production by setting OTP_MODE=production
+    return response
 
 @api_router.post("/customer/verify-otp")
 async def verify_otp(req: VerifyOtpRequest):
@@ -535,6 +551,12 @@ async def startup():
     await seed_admin()
     await seed_products()
     await db.admin_users.create_index("email", unique=True)
+    await db.otps.create_index("expires_at", expireAfterSeconds=0)
+    try:
+        await db.customers.create_index("phone", unique=True, sparse=True)
+        await db.customers.create_index("email", sparse=True)
+    except Exception as e:
+        logging.warning(f"Index creation warning (safe to ignore if indexes exist): {e}")
 
 app.include_router(api_router)
 
