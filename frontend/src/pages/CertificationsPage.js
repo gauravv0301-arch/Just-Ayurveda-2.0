@@ -20,6 +20,7 @@ const documents = [
       { label: 'Status', value: 'Active' },
     ],
     description: 'Our GST registration ensures that all transactions are fully compliant with Indian tax regulations. Every purchase includes proper tax documentation for your records.',
+    pdfUrl: 'https://customer-assets.emergentagent.com/job_ayurveda-wellness-30/artifacts/exlwevcy_71%20JUST%20AYURVEDA%20%281%29.PDF',
   },
   {
     id: 'fssai',
@@ -36,6 +37,7 @@ const documents = [
       { label: 'Status', value: 'Valid & Active' },
     ],
     description: 'Our FSSAI registration certifies that all our products meet the safety and quality standards mandated by the Food Safety and Standards Authority of India. This ensures our formulations are safe for consumption.',
+    pdfUrl: 'https://customer-assets.emergentagent.com/job_ayurveda-wellness-30/artifacts/f4fk27ll_Fssai%20-%20just%20aryudeva.pdf',
   },
 ];
 
@@ -49,7 +51,23 @@ export default function CertificationsPage() {
   const [viewDoc, setViewDoc] = useState(null);
 
   const handleDownload = (doc) => {
-    toast.info('PDF documents will be available for download soon.', { description: 'Please contact us on WhatsApp for immediate document requests.' });
+    if (doc.pdfUrl) {
+      const link = document.createElement('a');
+      link.href = doc.pdfUrl;
+      link.download = `${doc.title} - Just Ayurveda.pdf`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Download started!');
+    }
+  };
+
+  const handleViewPdf = (doc) => {
+    if (doc.pdfUrl) {
+      window.open(doc.pdfUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -123,13 +141,13 @@ export default function CertificationsPage() {
                   <p className="text-sm text-[#4f5958] mt-4 leading-relaxed line-clamp-2">{doc.description}</p>
 
                   {/* Actions */}
-                  <div className="flex gap-3 mt-5">
+                  <div className="flex gap-2 mt-5">
                     <button
                       data-testid={`view-doc-${doc.id}`}
                       onClick={() => setViewDoc(doc)}
                       className="flex-1 bg-[#cfecd6]/40 hover:bg-[#cfecd6]/70 text-[#233232] rounded-full py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                     >
-                      <Eye className="w-4 h-4" /> View Details
+                      <Eye className="w-4 h-4" /> View Document
                     </button>
                     <button
                       data-testid={`download-doc-${doc.id}`}
@@ -182,7 +200,7 @@ export default function CertificationsPage() {
       {/* Document Detail Dialog */}
       <Dialog open={!!viewDoc} onOpenChange={() => setViewDoc(null)}>
         {viewDoc && (
-          <DialogContent className="max-w-lg bg-white border-[#cfecd6] rounded-3xl p-0 overflow-hidden">
+          <DialogContent className="max-w-3xl bg-white border-[#cfecd6] rounded-3xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className={`bg-gradient-to-r ${viewDoc.badgeColor} p-6`}>
               <DialogHeader>
@@ -198,8 +216,20 @@ export default function CertificationsPage() {
               </DialogHeader>
             </div>
 
-            {/* Details */}
+            {/* Details + PDF */}
             <div className="p-6">
+              {/* Embedded PDF Preview */}
+              {viewDoc.pdfUrl && (
+                <div className="mb-5 rounded-2xl overflow-hidden border border-[#cfecd6] bg-[#f5f5f5]">
+                  <iframe
+                    src={`${viewDoc.pdfUrl}#toolbar=1&navpanes=0`}
+                    title={viewDoc.title}
+                    className="w-full h-[350px] md:h-[420px]"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+
               <div className="bg-[#cfecd6]/15 rounded-2xl p-5 space-y-3 mb-5">
                 {viewDoc.details.map((d, i) => (
                   <div key={i} className="flex items-center justify-between py-1.5 border-b border-[#cfecd6]/30 last:border-0">
@@ -211,18 +241,27 @@ export default function CertificationsPage() {
 
               <p className="text-sm text-[#4f5958] leading-relaxed mb-5">{viewDoc.description}</p>
 
-              <div className="flex items-center gap-2 bg-[#3bb44b]/8 rounded-xl p-3">
+              <div className="flex items-center gap-2 bg-[#3bb44b]/8 rounded-xl p-3 mb-5">
                 <BadgeCheck className="w-5 h-5 text-[#3bb44b] shrink-0" />
                 <span className="text-xs text-[#3bb44b] font-medium">This document is genuine and can be verified with the issuing authority.</span>
               </div>
 
-              <button
-                data-testid={`modal-download-${viewDoc.id}`}
-                onClick={() => handleDownload(viewDoc)}
-                className="w-full mt-5 bg-cta-gradient text-white rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 btn-hover-scale"
-              >
-                <Download className="w-4 h-4" /> Download Certificate
-              </button>
+              <div className="flex gap-3">
+                <button
+                  data-testid={`modal-view-pdf-${viewDoc.id}`}
+                  onClick={() => handleViewPdf(viewDoc)}
+                  className="flex-1 bg-[#cfecd6]/40 hover:bg-[#cfecd6]/70 text-[#233232] rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Eye className="w-4 h-4" /> Open Full PDF
+                </button>
+                <button
+                  data-testid={`modal-download-${viewDoc.id}`}
+                  onClick={() => handleDownload(viewDoc)}
+                  className="flex-1 bg-cta-gradient text-white rounded-full py-3 text-sm font-semibold flex items-center justify-center gap-2 btn-hover-scale"
+                >
+                  <Download className="w-4 h-4" /> Download
+                </button>
+              </div>
             </div>
           </DialogContent>
         )}
