@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: 'Home', to: '/' },
   { label: 'Products', to: '/products' },
   { label: 'About', to: '/about' },
+  { label: 'Certifications', to: '/certifications' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },
 ];
