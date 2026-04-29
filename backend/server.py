@@ -83,6 +83,8 @@ class OrderCreateRequest(BaseModel):
     customer_email: str
     customer_phone: str
     customer_address: str = ""
+    coupon_code: str = ""
+    discount_amount: float = 0
 
 class PaymentVerifyRequest(BaseModel):
     razorpay_order_id: str
@@ -188,22 +190,29 @@ async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_cu
     product = await db.products.find_one({"id": req.product_id}, {"_id": 0})
     if not product:
         raise HTTPException(404, "Product not found")
-    amount = int(product['price'] * req.quantity * 100)
+    subtotal = product['price'] * req.quantity
+    discount = req.discount_amount if req.discount_amount > 0 else 0
+    final_amount = subtotal - discount
+    amount_paise = int(final_amount * 100)
     order_id = f"JA-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
     razorpay_order_id = None
     if razorpay_client:
         try:
-            rzp_order = razorpay_client.order.create({"amount": amount, "currency": "INR", "receipt": order_id[:40], "payment_capture": 1})
+            rzp_order = razorpay_client.order.create({"amount": amount_paise, "currency": "INR", "receipt": order_id[:40], "payment_capture": 1})
             razorpay_order_id = rzp_order['id']
         except Exception as e:
             logging.error(f"Razorpay error: {e}")
             raise HTTPException(400, f"Payment initialization failed. Please ensure Razorpay keys are configured correctly.")
     else:
         raise HTTPException(400, "Payment gateway not configured. Add valid Razorpay API keys to backend .env")
+    # Increment coupon usage
+    if req.coupon_code:
+        await db.coupons.update_one({"code": req.coupon_code.upper()}, {"$inc": {"used_count": 1}})
     order = {
         "id": order_id, "product_id": product['id'], "product_name": product['name'],
         "product_image": product.get('image', ''), "quantity": req.quantity,
-        "amount": product['price'] * req.quantity, "amount_paise": amount,
+        "amount": final_amount, "subtotal": subtotal, "discount": discount,
+        "coupon_code": req.coupon_code or None, "amount_paise": amount_paise,
         "customer_name": req.customer_name, "customer_email": req.customer_email,
         "customer_phone": req.customer_phone, "customer_address": req.customer_address,
         "razorpay_order_id": razorpay_order_id, "razorpay_payment_id": None,
@@ -212,7 +221,7 @@ async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_cu
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.orders.insert_one(order)
-    return {"order_id": order_id, "razorpay_order_id": razorpay_order_id, "amount": amount, "currency": "INR", "product_name": product['name']}
+    return {"order_id": order_id, "razorpay_order_id": razorpay_order_id, "amount": amount_paise, "currency": "INR", "product_name": product['name']}
 
 @api_router.post("/orders/verify")
 async def verify_payment(req: PaymentVerifyRequest):
@@ -242,6 +251,117 @@ async def get_order(order_id: str):
 async def get_all_orders(admin=Depends(get_current_admin)):
     orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return orders
+
+# ===== ADMIN USER MANAGEMENT =====
+@api_router.get("/admin/users")
+async def get_all_users(admin=Depends(get_current_admin), search: Optional[str] = Query(None)):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}}
+        ]
+    users = await db.customers.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(200)
+    # Add order counts
+    for user in users:
+        user['order_count'] = await db.orders.count_documents({"customer_id": user.get('id')})
+    return users
+
+@api_router.get("/admin/users/{user_id}")
+async def get_user_details(user_id: str, admin=Depends(get_current_admin)):
+    user = await db.customers.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(404, "User not found")
+    user['orders'] = await db.orders.find({"customer_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    user['order_count'] = len(user['orders'])
+    return user
+
+@api_router.put("/admin/users/{user_id}/block")
+async def toggle_block_user(user_id: str, admin=Depends(get_current_admin)):
+    user = await db.customers.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(404, "User not found")
+    new_status = not user.get('blocked', False)
+    await db.customers.update_one({"id": user_id}, {"$set": {"blocked": new_status}})
+    return {"blocked": new_status}
+
+# ===== COUPON MANAGEMENT =====
+class CouponRequest(BaseModel):
+    code: str
+    discount_type: str = "percentage"
+    discount_value: float
+    min_order: float = 0
+    max_discount: float = 0
+    expiry: str = ""
+    usage_limit: int = 0
+    active: bool = True
+
+@api_router.get("/admin/coupons")
+async def get_all_coupons(admin=Depends(get_current_admin)):
+    coupons = await db.coupons.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return coupons
+
+@api_router.post("/admin/coupons")
+async def create_coupon(req: CouponRequest, admin=Depends(get_current_admin)):
+    existing = await db.coupons.find_one({"code": req.code.upper()})
+    if existing:
+        raise HTTPException(400, "Coupon code already exists")
+    doc = req.model_dump()
+    doc['id'] = str(uuid.uuid4())
+    doc['code'] = doc['code'].upper()
+    doc['used_count'] = 0
+    doc['created_at'] = datetime.now(timezone.utc).isoformat()
+    await db.coupons.insert_one(doc)
+    created = await db.coupons.find_one({"id": doc['id']}, {"_id": 0})
+    return created
+
+@api_router.put("/admin/coupons/{coupon_id}")
+async def update_coupon(coupon_id: str, req: CouponRequest, admin=Depends(get_current_admin)):
+    doc = req.model_dump()
+    doc['code'] = doc['code'].upper()
+    result = await db.coupons.update_one({"id": coupon_id}, {"$set": doc})
+    if result.matched_count == 0:
+        raise HTTPException(404, "Coupon not found")
+    updated = await db.coupons.find_one({"id": coupon_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/coupons/{coupon_id}")
+async def delete_coupon(coupon_id: str, admin=Depends(get_current_admin)):
+    result = await db.coupons.delete_one({"id": coupon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Coupon not found")
+    return {"message": "Coupon deleted"}
+
+# ===== PUBLIC COUPON VALIDATION =====
+class CouponValidateRequest(BaseModel):
+    code: str
+    order_total: float
+
+@api_router.post("/coupons/validate")
+async def validate_coupon(req: CouponValidateRequest):
+    coupon = await db.coupons.find_one({"code": req.code.upper(), "active": True}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(400, "Invalid coupon code")
+    # Check expiry
+    if coupon.get('expiry'):
+        try:
+            expiry = datetime.fromisoformat(coupon['expiry'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > expiry:
+                raise HTTPException(400, "Coupon has expired")
+        except (ValueError, TypeError):
+            pass
+    # Check usage limit
+    if coupon.get('usage_limit', 0) > 0 and coupon.get('used_count', 0) >= coupon['usage_limit']:
+        raise HTTPException(400, "Coupon usage limit reached")
+    # Check min order
+    if coupon.get('min_order', 0) > 0 and req.order_total < coupon['min_order']:
+        raise HTTPException(400, f"Minimum order of \u20B9{int(coupon['min_order'])} required")
+    # Calculate discount
+    discount = (req.order_total * coupon['discount_value']) / 100
+    if coupon.get('max_discount', 0) > 0:
+        discount = min(discount, coupon['max_discount'])
+    return {"valid": True, "coupon": coupon, "discount": round(discount, 2), "final_total": round(req.order_total - discount, 2)}
 
 # ===== CONTACT FORM =====
 class ContactRequest(BaseModel):

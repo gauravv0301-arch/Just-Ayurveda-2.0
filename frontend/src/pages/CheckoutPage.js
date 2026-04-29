@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, Trash2, Plus, Minus, Loader2, MapPin, User, Check } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, Loader2, MapPin, User, Check, Tag, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -50,6 +50,10 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState({});
   const [processing, setProcessing] = useState(false);
   const [selectedAddrId, setSelectedAddrId] = useState(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [discount, setDiscount] = useState(0);
   const [pinLoading, setPinLoading] = useState(false);
   const total = getTotal();
   const savedAddresses = customer?.addresses || [];
@@ -76,6 +80,30 @@ export default function CheckoutPage() {
     setSelectedAddrId(addr.id);
     setForm(prev => ({ ...prev, house: addr.house, street: addr.street, landmark: addr.landmark || '', city: addr.city, state: addr.state, pincode: addr.pincode }));
   };
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    try {
+      const { data } = await axios.post(`${API}/coupons/validate`, { code: couponCode, order_total: total });
+      setCouponApplied(data.coupon);
+      setDiscount(data.discount);
+      toast.success(`Coupon "${data.coupon.code}" applied! You save \u20B9${data.discount}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Invalid coupon');
+      setCouponApplied(null);
+      setDiscount(0);
+    } finally { setCouponLoading(false); }
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setDiscount(0);
+    setCouponCode('');
+    toast.info('Coupon removed');
+  };
+
+  const finalTotal = total - discount;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -151,6 +179,7 @@ export default function CheckoutPage() {
         product_id: item.product.id, quantity: item.quantity,
         customer_name: form.name, customer_email: form.email,
         customer_phone: form.phone, customer_address: buildAddress(),
+        coupon_code: couponApplied?.code || '', discount_amount: discount,
       }, { headers });
 
       const loaded = await loadRazorpayScript();
@@ -336,14 +365,39 @@ export default function CheckoutPage() {
                 ))}
               </div>
               <div className="border-t border-[#cfecd6] mt-5 pt-4">
+                {/* Coupon Section */}
+                <div className="mb-4">
+                  {couponApplied ? (
+                    <div className="flex items-center justify-between bg-[#3bb44b]/5 border border-[#3bb44b]/20 rounded-xl p-3">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-[#3bb44b]" />
+                        <span className="text-sm font-semibold text-[#3bb44b]">{couponApplied.code}</span>
+                        <span className="text-xs text-[#4f5958]">({couponApplied.discount_value}% off)</span>
+                      </div>
+                      <button onClick={removeCoupon} data-testid="remove-coupon-btn" className="p-1 text-[#8dac96] hover:text-red-500"><X className="w-4 h-4" /></button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input data-testid="coupon-input" value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Coupon code" className="flex-1 h-10 px-3 rounded-xl border border-[#cfecd6] text-sm text-[#233232] placeholder-[#8dac96] font-mono uppercase focus:outline-none focus:ring-2 focus:ring-[#3bb44b]/30"
+                        onKeyDown={e => e.key === 'Enter' && applyCoupon()} />
+                      <button data-testid="apply-coupon-btn" onClick={applyCoupon} disabled={couponLoading}
+                        className="px-4 h-10 bg-[#cfecd6]/50 hover:bg-[#cfecd6] text-[#233232] rounded-xl text-sm font-medium transition-colors disabled:opacity-60 flex items-center gap-1">
+                        {couponLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-3.5 h-3.5" />} Apply
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-between text-sm text-[#4f5958]"><span>Subtotal</span><span>{"\u20B9"}{total.toLocaleString('en-IN')}</span></div>
+                {discount > 0 && <div className="flex justify-between text-sm text-[#3bb44b] mt-1"><span>Discount</span><span>-{"\u20B9"}{discount.toLocaleString('en-IN')}</span></div>}
                 <div className="flex justify-between text-sm text-[#4f5958] mt-1"><span>Shipping</span><span className="text-[#3bb44b]">Free</span></div>
-                <div className="flex justify-between font-bold text-[#233232] text-lg mt-3 font-['Outfit']"><span>Total</span><span>{"\u20B9"}{total.toLocaleString('en-IN')}</span></div>
+                <div className="flex justify-between font-bold text-[#233232] text-lg mt-3 font-['Outfit']"><span>Total</span><span>{"\u20B9"}{finalTotal.toLocaleString('en-IN')}</span></div>
               </div>
 
               <button data-testid="pay-now-btn" onClick={handlePayment} disabled={processing}
                 className="w-full mt-6 bg-cta-gradient text-white rounded-full py-3.5 font-semibold flex items-center justify-center gap-2 btn-hover-scale disabled:opacity-60 disabled:cursor-not-allowed">
-                {processing ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><ShoppingBag className="w-5 h-5" /> Pay {"\u20B9"}{total.toLocaleString('en-IN')}</>}
+                {processing ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><ShoppingBag className="w-5 h-5" /> Pay {"\u20B9"}{finalTotal.toLocaleString('en-IN')}</>}
               </button>
               <p className="text-xs text-[#8dac96] text-center mt-3">Secured by Razorpay. Discreet billing.</p>
             </div>

@@ -1,18 +1,38 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, MessageCircle, ShoppingCart, Leaf, Star, X, ExternalLink } from 'lucide-react';
+import { ShoppingBag, MessageCircle, ShoppingCart, Leaf, Star, X, ExternalLink, Heart } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
+import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
+import axios from 'axios';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function ProductQuickView({ product, open, onClose }) {
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isLoggedIn, customer, authHeaders, refreshProfile } = useCustomer();
 
   if (!product) return null;
 
   const discount = Math.round(((product.original_price - product.price) / product.original_price) * 100);
+  const isWished = isLoggedIn && customer?.wishlist?.includes(product.id);
+
+  const toggleWishlist = async () => {
+    if (!isLoggedIn) { toast.info('Login to save to wishlist'); onClose(); navigate('/auth?redirect=/products'); return; }
+    try {
+      if (isWished) {
+        await axios.delete(`${API}/customer/wishlist/${product.id}`, { headers: authHeaders() });
+        toast.success('Removed from wishlist');
+      } else {
+        await axios.post(`${API}/customer/wishlist/${product.id}`, {}, { headers: authHeaders() });
+        toast.success('Added to wishlist');
+      }
+      refreshProfile();
+    } catch { toast.error('Failed to update wishlist'); }
+  };
 
   const handleAddToCart = () => {
     addToCart(product, 1);
@@ -45,6 +65,10 @@ export default function ProductQuickView({ product, open, onClose }) {
                 {discount}% OFF
               </Badge>
             )}
+            <button data-testid="quickview-wishlist-btn" onClick={toggleWishlist}
+              className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${isWished ? 'bg-red-500 text-white' : 'bg-white/80 text-[#8dac96] hover:text-red-500 hover:bg-white shadow-md'}`}>
+              <Heart className={`w-4 h-4 ${isWished ? 'fill-current' : ''}`} />
+            </button>
           </div>
 
           {/* Content */}
