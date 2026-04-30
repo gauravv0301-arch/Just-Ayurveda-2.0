@@ -126,6 +126,11 @@ async def get_me(admin=Depends(get_current_admin)):
 async def root():
     return {"message": "Just Ayurveda API"}
 
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+
 @api_router.get("/products")
 async def get_products(search: Optional[str] = Query(None), sort: Optional[str] = Query("popularity"), category: Optional[str] = Query(None)):
     query = {}
@@ -262,10 +267,15 @@ async def get_all_users(admin=Depends(get_current_admin), search: Optional[str] 
             {"phone": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}}
         ]
-    users = await db.customers.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(200)
-    # Add order counts
-    for user in users:
-        user['order_count'] = await db.orders.count_documents({"customer_id": user.get('id')})
+    pipeline = [
+        {"$match": query},
+        {"$sort": {"created_at": -1}},
+        {"$limit": 200},
+        {"$lookup": {"from": "orders", "localField": "id", "foreignField": "customer_id", "as": "_orders"}},
+        {"$addFields": {"order_count": {"$size": "$_orders"}}},
+        {"$project": {"_id": 0, "password_hash": 0, "_orders": 0}}
+    ]
+    users = await db.customers.aggregate(pipeline).to_list(200)
     return users
 
 @api_router.get("/admin/users/{user_id}")
