@@ -46,8 +46,9 @@ export default function Navbar() {
     <nav data-testid="navbar" className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'nav-glass shadow-sm' : 'bg-[#edfbf0]/60 backdrop-blur-sm'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          <Link to="/" data-testid="nav-logo" className="flex items-center gap-2 shrink-0">
+          <Link to="/" data-testid="nav-logo" className="flex items-center gap-2.5 shrink-0">
             <img src={LOGO_URL} alt="Just Ayurveda" className="h-10 md:h-12 w-auto object-contain" />
+            <span className="hidden lg:block text-[10px] text-[#8dac96] font-medium tracking-wide leading-tight border-l border-[#cfecd6] pl-2.5">Revive Your<br/>Natural Vitality</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
