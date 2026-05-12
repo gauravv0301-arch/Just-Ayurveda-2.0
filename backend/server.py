@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Query, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, Query, HTTPException, Depends, UploadFile, File, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -10,9 +10,10 @@ import bcrypt
 import jwt as pyjwt
 import random
 import string
+import requests as http_requests
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 
 ROOT_DIR = Path(__file__).parent
@@ -92,6 +93,67 @@ class PaymentVerifyRequest(BaseModel):
     razorpay_signature: str
     order_id: str
 
+# ===== STORAGE (Emergent Object Storage) =====
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "just-ayurveda"
+_storage_key = None
+ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+EXT_FOR_MIME = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    if not EMERGENT_KEY:
+        raise RuntimeError("EMERGENT_LLM_KEY not set")
+    resp = http_requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = http_requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def get_object(path: str):
+    key = init_storage()
+    resp = http_requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+def _normalize_product_images(doc: dict) -> dict:
+    """Ensure both `image` (primary URL) and `images` array stay in sync."""
+    images = doc.get("images") or []
+    # Filter invalid entries
+    images = [i for i in images if isinstance(i, dict) and i.get("url")]
+    if images:
+        primary = next((i for i in images if i.get("isPrimary")), None)
+        if not primary:
+            images[0]["isPrimary"] = True
+            primary = images[0]
+        # Enforce single primary
+        for i in images:
+            i["isPrimary"] = (i["url"] == primary["url"])
+        doc["image"] = primary["url"]
+        doc["images"] = images
+    elif doc.get("image"):
+        # Backward compatibility: derive images from legacy `image`
+        doc["images"] = [{"url": doc["image"], "isPrimary": True}]
+    else:
+        doc["images"] = []
+    return doc
+
 class ProductCreateRequest(BaseModel):
     name: str
     slug: str
@@ -103,6 +165,7 @@ class ProductCreateRequest(BaseModel):
     price: float
     original_price: float
     image: str = ""
+    images: List[Dict[str, Any]] = []
     category: str = ""
     popularity: int = 50
     faqs: List[dict] = []
@@ -167,6 +230,7 @@ async def get_product(product_id: str):
 @api_router.post("/admin/products")
 async def create_product(product: ProductCreateRequest, admin=Depends(get_current_admin)):
     doc = product.model_dump()
+    doc = _normalize_product_images(doc)
     doc['id'] = f"prod-{str(uuid.uuid4())[:8]}"
     doc['created_at'] = datetime.now(timezone.utc).isoformat()
     await db.products.insert_one(doc)
@@ -176,6 +240,7 @@ async def create_product(product: ProductCreateRequest, admin=Depends(get_curren
 @api_router.put("/admin/products/{product_id}")
 async def update_product(product_id: str, product: ProductCreateRequest, admin=Depends(get_current_admin)):
     doc = product.model_dump()
+    doc = _normalize_product_images(doc)
     result = await db.products.update_one({"id": product_id}, {"$set": doc})
     if result.matched_count == 0:
         raise HTTPException(404, "Product not found")
@@ -188,6 +253,55 @@ async def delete_product(product_id: str, admin=Depends(get_current_admin)):
     if result.deleted_count == 0:
         raise HTTPException(404, "Product not found")
     return {"message": "Product deleted"}
+
+# ===== ADMIN IMAGE UPLOAD =====
+@api_router.post("/admin/upload")
+async def admin_upload(files: List[UploadFile] = File(...), admin=Depends(get_current_admin)):
+    if len(files) > 10:
+        raise HTTPException(400, "Maximum 10 files per upload request")
+    uploaded = []
+    for f in files:
+        ct = (f.content_type or "").lower()
+        if ct not in ALLOWED_MIME:
+            raise HTTPException(400, f"Unsupported file type: {ct or 'unknown'}. Allowed: JPG, PNG, WEBP")
+        data = await f.read()
+        if len(data) > MAX_IMAGE_SIZE:
+            raise HTTPException(400, f"{f.filename}: exceeds 5MB limit")
+        ext = EXT_FOR_MIME.get(ct, "bin")
+        path = f"{APP_NAME}/products/{uuid.uuid4().hex}.{ext}"
+        try:
+            result = put_object(path, data, ct)
+        except Exception as e:
+            logging.error(f"Storage upload failed: {e}")
+            raise HTTPException(500, "Storage upload failed. Please try again.")
+        url = f"/api/files/{result['path']}"
+        await db.files.insert_one({
+            "id": str(uuid.uuid4()),
+            "storage_path": result['path'],
+            "original_filename": f.filename,
+            "content_type": ct,
+            "size": result.get('size', len(data)),
+            "url": url,
+            "is_deleted": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        uploaded.append({"url": url, "path": result['path'], "filename": f.filename, "size": len(data)})
+    return {"files": uploaded}
+
+@api_router.get("/files/{path:path}")
+async def serve_file(path: str):
+    record = await db.files.find_one({"storage_path": path, "is_deleted": False})
+    if not record:
+        raise HTTPException(404, "File not found")
+    try:
+        data, ct = get_object(path)
+    except Exception:
+        raise HTTPException(404, "File not found in storage")
+    return Response(
+        content=data,
+        media_type=record.get("content_type") or ct,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 # ===== ORDER ENDPOINTS =====
 @api_router.post("/orders/create")
@@ -676,10 +790,23 @@ async def seed_products():
             await db.products.insert_one(p)
         logging.info("Seeded 5 products")
 
+async def backfill_product_images():
+    """Ensure every product has an `images` array (mirrored from `image`)."""
+    cursor = db.products.find({"images": {"$exists": False}})
+    async for p in cursor:
+        imgs = [{"url": p["image"], "isPrimary": True}] if p.get("image") else []
+        await db.products.update_one({"_id": p["_id"]}, {"$set": {"images": imgs}})
+
 @app.on_event("startup")
 async def startup():
     await seed_admin()
     await seed_products()
+    await backfill_product_images()
+    try:
+        init_storage()
+        logging.info("Object storage initialized")
+    except Exception as e:
+        logging.error(f"Object storage init failed: {e}")
     await db.admin_users.create_index("email", unique=True)
     await db.otps.create_index("expires_at", expireAfterSeconds=0)
     try:

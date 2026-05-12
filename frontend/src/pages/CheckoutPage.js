@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
+import { getPrimaryImage } from '@/lib/images';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const RAZORPAY_KEY = process.env.REACT_APP_RAZORPAY_KEY_ID;
@@ -350,7 +351,7 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex gap-3" data-testid={`cart-item-${item.product.id}`}>
-                    <img src={item.product.image} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-[#cfecd6]/30" />
+                    <img src={getPrimaryImage(item.product)} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-[#cfecd6]/30" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#233232] truncate">{item.product.name}</p>
                       <p className="text-sm text-[#4f5958]">{"\u20B9"}{item.product.price.toLocaleString('en-IN')}</p>

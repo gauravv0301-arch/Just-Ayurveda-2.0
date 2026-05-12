@@ -1,11 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, MessageCircle, ShoppingCart, Leaf, Star, X, ExternalLink, Heart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingBag, ShoppingCart, Leaf, Heart, ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
+import ImageGallery from '@/components/ImageGallery';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -57,18 +58,24 @@ export default function ProductQuickView({ product, open, onClose }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-white border-[#cfecd6] rounded-3xl p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto">
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-0">
-          {/* Image */}
-          <div className="sm:col-span-2 product-img-container aspect-square sm:aspect-auto sm:min-h-[320px] relative">
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-            {discount > 0 && (
-              <Badge className="absolute top-3 left-3 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">
-                {discount}% OFF
-              </Badge>
-            )}
-            <button data-testid="quickview-wishlist-btn" onClick={toggleWishlist}
-              className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${isWished ? 'bg-red-500 text-white' : 'bg-white/80 text-[#8dac96] hover:text-red-500 hover:bg-white shadow-md'}`}>
-              <Heart className={`w-4 h-4 ${isWished ? 'fill-current' : ''}`} />
-            </button>
+          {/* Image Gallery */}
+          <div className="sm:col-span-2 p-4 sm:p-5 bg-[#f7faf7]">
+            <ImageGallery
+              product={product}
+              size="compact"
+              className="aspect-square rounded-2xl"
+              badge={discount > 0 && (
+                <Badge className="absolute top-3 left-3 z-10 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">
+                  {discount}% OFF
+                </Badge>
+              )}
+              actions={
+                <button data-testid="quickview-wishlist-btn" onClick={toggleWishlist}
+                  className={`absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${isWished ? 'bg-red-500 text-white' : 'bg-white/80 text-[#8dac96] hover:text-red-500 hover:bg-white shadow-md'}`}>
+                  <Heart className={`w-4 h-4 ${isWished ? 'fill-current' : ''}`} />
+                </button>
+              }
+            />
           </div>
 
           {/* Content */}

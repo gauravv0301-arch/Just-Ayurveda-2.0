@@ -5,10 +5,12 @@ import { Plus, Pencil, Trash2, LogOut, Package, ShoppingCart, Loader2, Users, Ta
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import MultiImageUploader from '@/components/MultiImageUploader';
+import { getPrimaryImage, resolveImageUrl } from '@/lib/images';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 function getHeaders() { return { Authorization: `Bearer ${sessionStorage.getItem('ja_admin_token')}` }; }
-const emptyProduct = { name: '', slug: '', short_description: '', description: '', highlights: [], ingredients: '', usage_guide: '', price: 0, original_price: 0, image: '', category: '', popularity: 50, faqs: [], reviews: [] };
+const emptyProduct = { name: '', slug: '', short_description: '', description: '', highlights: [], ingredients: '', usage_guide: '', price: 0, original_price: 0, image: '', images: [], category: '', popularity: 50, faqs: [], reviews: [] };
 const emptyCoupon = { code: '', discount_type: 'percentage', discount_value: 10, min_order: 0, max_discount: 0, expiry: '', usage_limit: 0, active: true };
 
 export default function AdminDashboardPage() {
@@ -53,11 +55,31 @@ export default function AdminDashboardPage() {
 
   // Product CRUD
   const openAddProduct = () => { setEditProduct(null); setForm(emptyProduct); setHighlightsStr(''); setDialogType('product'); setDialogOpen(true); };
-  const openEditProduct = (p) => { setEditProduct(p); setForm({ ...p }); setHighlightsStr(p.highlights?.join(', ') || ''); setDialogType('product'); setDialogOpen(true); };
+  const openEditProduct = (p) => {
+    const imgs = Array.isArray(p.images) && p.images.length > 0
+      ? p.images
+      : (p.image ? [{ url: p.image, isPrimary: true }] : []);
+    setEditProduct(p);
+    setForm({ ...p, images: imgs });
+    setHighlightsStr(p.highlights?.join(', ') || '');
+    setDialogType('product');
+    setDialogOpen(true);
+  };
   const saveProduct = async () => {
     setSaving(true);
     const slug = form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const payload = { ...form, slug, highlights: highlightsStr.split(',').map(s => s.trim()).filter(Boolean), price: Number(form.price), original_price: Number(form.original_price), popularity: Number(form.popularity) };
+    const images = (form.images || []).filter(i => i && i.url);
+    const primary = images.find(i => i.isPrimary) || images[0];
+    const payload = {
+      ...form,
+      slug,
+      highlights: highlightsStr.split(',').map(s => s.trim()).filter(Boolean),
+      price: Number(form.price),
+      original_price: Number(form.original_price),
+      popularity: Number(form.popularity),
+      images,
+      image: primary?.url || form.image || '',
+    };
     try {
       if (editProduct) await axios.put(`${API}/admin/products/${editProduct.id}`, payload, { headers: getHeaders() });
       else await axios.post(`${API}/admin/products`, payload, { headers: getHeaders() });
@@ -143,7 +165,7 @@ export default function AdminDashboardPage() {
                 <thead><tr className="bg-[#cfecd6]/20 text-[#4f5958]"><th className="text-left px-5 py-3">Product</th><th className="text-left px-5 py-3">Category</th><th className="text-right px-5 py-3">Price</th><th className="text-right px-5 py-3">Actions</th></tr></thead>
                 <tbody>{products.map(p => (
                   <tr key={p.id} className="border-t border-[#cfecd6]/50 hover:bg-[#cfecd6]/10">
-                    <td className="px-5 py-3 flex items-center gap-3"><img src={p.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#cfecd6]/30" /><span className="font-medium text-[#233232]">{p.name}</span></td>
+                    <td className="px-5 py-3 flex items-center gap-3"><img src={resolveImageUrl(getPrimaryImage(p))} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#cfecd6]/30" /><span className="font-medium text-[#233232]">{p.name}{p.images?.length > 1 && <span className="ml-2 text-xs bg-[#cfecd6]/60 text-[#4f5958] px-1.5 py-0.5 rounded-full">{p.images.length}</span>}</span></td>
                     <td className="px-5 py-3 text-[#4f5958]">{p.category}</td>
                     <td className="px-5 py-3 text-right font-medium">{"\u20B9"}{p.price}</td>
                     <td className="px-5 py-3 text-right"><button onClick={() => openEditProduct(p)} className="p-1.5 text-[#4f5958] hover:text-[#3bb44b]"><Pencil className="w-4 h-4" /></button><button onClick={() => deleteProduct(p.id)} className="p-1.5 text-[#4f5958] hover:text-red-500 ml-1"><Trash2 className="w-4 h-4" /></button></td>
@@ -248,7 +270,10 @@ export default function AdminDashboardPage() {
               <div><label className="text-sm font-medium text-[#233232] mb-1 block">Price *</label><input type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} className={inputCls} /></div>
               <div><label className="text-sm font-medium text-[#233232] mb-1 block">Original Price</label><input type="number" value={form.original_price} onChange={e => setForm(p => ({ ...p, original_price: e.target.value }))} className={inputCls} /></div>
               <div><label className="text-sm font-medium text-[#233232] mb-1 block">Category</label><input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} className={inputCls} placeholder="Capsules" /></div>
-              <div><label className="text-sm font-medium text-[#233232] mb-1 block">Image URL</label><input value={form.image} onChange={e => setForm(p => ({ ...p, image: e.target.value }))} className={inputCls} /></div>
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium text-[#233232] mb-1 block">Product Images <span className="text-xs font-normal text-[#8dac96]">(up to 5 · JPG, PNG, WEBP · max 5MB each)</span></label>
+                <MultiImageUploader images={form.images || []} onChange={(imgs) => setForm(p => ({ ...p, images: imgs }))} />
+              </div>
               <div className="sm:col-span-2"><label className="text-sm font-medium text-[#233232] mb-1 block">Short Description</label><input value={form.short_description} onChange={e => setForm(p => ({ ...p, short_description: e.target.value }))} className={inputCls} /></div>
               <div className="sm:col-span-2"><label className="text-sm font-medium text-[#233232] mb-1 block">Description</label><textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} className={`${inputCls} h-auto py-2 resize-none`} /></div>
               <div className="sm:col-span-2"><label className="text-sm font-medium text-[#233232] mb-1 block">Highlights (comma separated)</label><input value={highlightsStr} onChange={e => setHighlightsStr(e.target.value)} className={inputCls} /></div>

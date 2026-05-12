@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useCustomer } from '@/context/CustomerContext';
 import ProductCard from '@/components/ProductCard';
 import ProductQuickView from '@/components/ProductQuickView';
+import { resolveImageUrl } from '@/lib/images';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STATES = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi (NCT)','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'];
@@ -195,7 +196,7 @@ export default function AccountPage() {
               <div className="space-y-4">
                 {orders.map(o => (
                   <div key={o.id} className="bg-white rounded-2xl p-5 border border-[#cfecd6] flex items-center gap-4" data-testid={`order-${o.id}`}>
-                    {o.product_image && <img src={o.product_image} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#cfecd6]/30" />}
+                    {o.product_image && <img src={resolveImageUrl(o.product_image)} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#cfecd6]/30" />}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-[#233232] text-sm">{o.product_name}</p>
                       <p className="text-xs text-[#4f5958]">Order: {o.id} &bull; Qty: {o.quantity}</p>

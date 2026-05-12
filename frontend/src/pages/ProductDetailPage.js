@@ -10,6 +10,7 @@ import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
 import ProductCard from '@/components/ProductCard';
+import ImageGallery from '@/components/ImageGallery';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -99,10 +100,17 @@ export default function ProductDetailPage() {
 
         {/* Product */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-          <div className="product-img-container rounded-3xl overflow-hidden relative aspect-square">
-            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-            {discount > 0 && <Badge className="absolute top-4 left-4 bg-[#3bb44b] text-white border-none text-sm font-semibold rounded-full px-4 py-1.5">{discount}% OFF</Badge>}
-          </div>
+          <ImageGallery
+            product={product}
+            size="full"
+            allowZoom
+            className="rounded-3xl aspect-square"
+            badge={discount > 0 && (
+              <Badge className="absolute top-4 left-4 z-10 bg-[#3bb44b] text-white border-none text-sm font-semibold rounded-full px-4 py-1.5">
+                {discount}% OFF
+              </Badge>
+            )}
+          />
 
           <div className="flex flex-col">
             <p className="text-xs uppercase tracking-[0.15em] text-[#8dac96] font-medium mb-2">{product.category}</p>

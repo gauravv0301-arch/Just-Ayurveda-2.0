@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
+import { getPrimaryImage } from '@/lib/images';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -66,7 +67,7 @@ export default function ProductCard({ product, index, onQuickView }) {
     >
       <div className="block" data-testid={`product-link-${product.id}`}>
         <div className="product-img-container aspect-square relative overflow-hidden">
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
+          <img src={getPrimaryImage(product)} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
           {discount > 0 && (
             <Badge className="absolute top-3 left-3 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">{discount}% OFF</Badge>
           )}
