@@ -53,7 +53,7 @@ export default function ImageGallery({ product, size = 'full', className = '', b
     <div className="flex flex-col gap-3" data-testid="image-gallery">
       {/* Main image */}
       <div
-        className={`relative product-img-container overflow-hidden ${className}`}
+        className={`relative product-img-container overflow-hidden flex items-center justify-center p-5 sm:p-8 ${className}`}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setZoomPos(null)}
         onTouchStart={handleTouchStart}
@@ -64,7 +64,7 @@ export default function ImageGallery({ product, size = 'full', className = '', b
           alt=""
           loading="lazy"
           data-testid={`gallery-main-${active}`}
-          className={`w-full h-full object-cover transition-transform duration-300 ${
+          className={`w-full h-full object-contain drop-shadow-lg transition-transform duration-300 ${
             allowZoom && zoomPos ? 'scale-150' : 'scale-100'
           }`}
           style={allowZoom && zoomPos ? { transformOrigin: `${zoomPos.x}% ${zoomPos.y}%` } : undefined}
@@ -116,11 +116,11 @@ export default function ImageGallery({ product, size = 'full', className = '', b
               type="button"
               onClick={() => setActive(i)}
               data-testid={`gallery-thumb-${i}`}
-              className={`shrink-0 rounded-xl overflow-hidden border-2 transition-all ${
-                size === 'compact' ? 'w-14 h-14' : 'w-16 h-16 sm:w-20 sm:h-20'
+              className={`shrink-0 rounded-xl overflow-hidden border-2 transition-all flex items-center justify-center p-1 bg-white ${
+                size === 'compact' ? 'w-12 h-16' : 'w-14 h-20 sm:w-16 sm:h-24'
               } ${i === active ? 'border-[#3bb44b] ring-2 ring-[#3bb44b]/20' : 'border-[#cfecd6] hover:border-[#3bb44b]/60'}`}
             >
-              <img src={img.url} alt="" className="w-full h-full object-cover" />
+              <img src={img.url} alt="" className="w-full h-full object-contain" />
             </button>
           ))}
         </div>

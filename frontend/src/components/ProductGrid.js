@@ -80,7 +80,7 @@ export default function ProductGrid({ products, loading, onViewDetails, searchQu
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {[1, 2, 3, 4, 5].map(i => (
               <div key={i} className="rounded-2xl overflow-hidden bg-white border border-[#cfecd6]">
-                <Skeleton className="aspect-square w-full skeleton-shimmer" />
+                <Skeleton className="aspect-[3/4] w-full skeleton-shimmer" />
                 <div className="p-5 space-y-3">
                   <Skeleton className="h-3 w-20 skeleton-shimmer rounded-full" />
                   <Skeleton className="h-5 w-3/4 skeleton-shimmer rounded-full" />

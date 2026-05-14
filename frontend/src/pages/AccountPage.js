@@ -196,7 +196,7 @@ export default function AccountPage() {
               <div className="space-y-4">
                 {orders.map(o => (
                   <div key={o.id} className="bg-white rounded-2xl p-5 border border-[#cfecd6] flex items-center gap-4" data-testid={`order-${o.id}`}>
-                    {o.product_image && <img src={resolveImageUrl(o.product_image)} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#cfecd6]/30" />}
+                    {o.product_image && <div className="w-12 h-16 rounded-xl bg-[#cfecd6]/30 flex items-center justify-center p-1 shrink-0"><img src={resolveImageUrl(o.product_image)} alt="" className="w-full h-full object-contain" /></div>}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-[#233232] text-sm">{o.product_name}</p>
                       <p className="text-xs text-[#4f5958]">Order: {o.id} &bull; Qty: {o.quantity}</p>

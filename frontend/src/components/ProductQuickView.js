@@ -63,7 +63,7 @@ export default function ProductQuickView({ product, open, onClose }) {
             <ImageGallery
               product={product}
               size="compact"
-              className="aspect-square rounded-2xl"
+              className="aspect-[3/4] rounded-2xl"
               badge={discount > 0 && (
                 <Badge className="absolute top-3 left-3 z-10 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">
                   {discount}% OFF

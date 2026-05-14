@@ -142,11 +142,11 @@ export default function MultiImageUploader({ images, onChange }) {
             <div
               key={`${img.url}-${idx}`}
               data-testid={`image-thumb-${idx}`}
-              className={`relative group aspect-square rounded-xl overflow-hidden border-2 ${
+              className={`relative group aspect-[3/4] rounded-xl overflow-hidden border-2 flex items-center justify-center p-2 bg-white ${
                 img.isPrimary ? 'border-[#3bb44b]' : 'border-[#cfecd6]'
               }`}
             >
-              <img src={resolveImageUrl(img.url)} alt="" className="w-full h-full object-cover" />
+              <img src={resolveImageUrl(img.url)} alt="" className="w-full h-full object-contain" />
               {img.isPrimary && (
                 <div className="absolute top-1.5 left-1.5 bg-[#3bb44b] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-1">
                   <Star className="w-2.5 h-2.5 fill-current" /> Primary
@@ -201,7 +201,7 @@ export default function MultiImageUploader({ images, onChange }) {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="aspect-square rounded-xl border-2 border-dashed border-[#cfecd6] hover:border-[#3bb44b] hover:bg-[#3bb44b]/5 flex flex-col items-center justify-center text-[#8dac96] hover:text-[#3bb44b] transition-colors"
+              className="aspect-[3/4] rounded-xl border-2 border-dashed border-[#cfecd6] hover:border-[#3bb44b] hover:bg-[#3bb44b]/5 flex flex-col items-center justify-center text-[#8dac96] hover:text-[#3bb44b] transition-colors"
               data-testid="add-more-images"
             >
               <ImagePlus className="w-5 h-5" />

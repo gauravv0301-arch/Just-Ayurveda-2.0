@@ -37,7 +37,7 @@ export default function ProductDetailPage() {
   }, [slug]);
 
   if (loading) return (
-    <div className="pt-24 pb-16 max-w-7xl mx-auto px-4"><div className="grid md:grid-cols-2 gap-8"><Skeleton className="aspect-square rounded-2xl skeleton-shimmer" /><div className="space-y-4"><Skeleton className="h-6 w-24 skeleton-shimmer rounded-full" /><Skeleton className="h-10 w-3/4 skeleton-shimmer rounded" /><Skeleton className="h-20 w-full skeleton-shimmer rounded" /></div></div></div>
+    <div className="pt-24 pb-16 max-w-7xl mx-auto px-4"><div className="grid md:grid-cols-2 gap-8"><Skeleton className="aspect-[4/5] rounded-2xl skeleton-shimmer" /><div className="space-y-4"><Skeleton className="h-6 w-24 skeleton-shimmer rounded-full" /><Skeleton className="h-10 w-3/4 skeleton-shimmer rounded" /><Skeleton className="h-20 w-full skeleton-shimmer rounded" /></div></div></div>
   );
 
   if (!product) return (
@@ -104,7 +104,7 @@ export default function ProductDetailPage() {
             product={product}
             size="full"
             allowZoom
-            className="rounded-3xl aspect-square"
+            className="rounded-3xl aspect-[4/5]"
             badge={discount > 0 && (
               <Badge className="absolute top-4 left-4 z-10 bg-[#3bb44b] text-white border-none text-sm font-semibold rounded-full px-4 py-1.5">
                 {discount}% OFF

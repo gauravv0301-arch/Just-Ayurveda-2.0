@@ -66,8 +66,8 @@ export default function ProductCard({ product, index, onQuickView }) {
       onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(e); }}
     >
       <div className="block" data-testid={`product-link-${product.id}`}>
-        <div className="product-img-container aspect-square relative overflow-hidden">
-          <img src={getPrimaryImage(product)} alt={product.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
+        <div className="product-img-container aspect-[3/4] relative overflow-hidden flex items-center justify-center p-4 group/img">
+          <img src={getPrimaryImage(product)} alt={product.name} className="w-full h-full object-contain drop-shadow-md transition-transform duration-500 group-hover/img:scale-105" loading="lazy" />
           {discount > 0 && (
             <Badge className="absolute top-3 left-3 bg-[#3bb44b] text-white border-none text-xs font-semibold rounded-full px-3 py-1">{discount}% OFF</Badge>
           )}
