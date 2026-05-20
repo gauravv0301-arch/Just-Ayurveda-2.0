@@ -366,6 +366,67 @@ async def get_order(order_id: str):
         raise HTTPException(404, "Order not found")
     return order
 
+# ===== RAZORPAY WEBHOOK =====
+# Configure in Razorpay Dashboard → Settings → Webhooks → Add new
+#   URL:    https://<your-domain>/api/razorpay/webhook
+#   Secret: same as env RAZORPAY_WEBHOOK_SECRET
+#   Events: payment.captured, payment.failed
+import hmac
+import hashlib
+
+@api_router.post("/razorpay/webhook")
+async def razorpay_webhook(request: Request):
+    body = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+    secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+    if not secret:
+        logging.warning("Razorpay webhook received but RAZORPAY_WEBHOOK_SECRET not configured")
+        raise HTTPException(503, "Webhook not configured")
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        logging.warning("Razorpay webhook signature mismatch")
+        raise HTTPException(400, "Invalid signature")
+
+    import json as _json
+    try:
+        payload = _json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+
+    event = payload.get("event")
+    pmt = (payload.get("payload") or {}).get("payment", {}).get("entity", {})
+    rzp_order_id = pmt.get("order_id")
+    rzp_payment_id = pmt.get("id")
+
+    if not rzp_order_id:
+        return {"status": "ignored", "reason": "no order_id"}
+
+    if event == "payment.captured":
+        await db.orders.update_one(
+            {"razorpay_order_id": rzp_order_id},
+            {"$set": {
+                "status": "paid",
+                "razorpay_payment_id": rzp_payment_id,
+                "webhook_event": event,
+                "webhook_received_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+    elif event == "payment.failed":
+        await db.orders.update_one(
+            {"razorpay_order_id": rzp_order_id},
+            {"$set": {
+                "status": "failed",
+                "razorpay_payment_id": rzp_payment_id,
+                "failure_reason": pmt.get("error_description") or pmt.get("error_reason") or "unknown",
+                "webhook_event": event,
+                "webhook_received_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+    else:
+        logging.info(f"Unhandled Razorpay webhook event: {event}")
+
+    return {"status": "ok", "event": event}
+
 @api_router.get("/admin/orders")
 async def get_all_orders(admin=Depends(get_current_admin)):
     orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
