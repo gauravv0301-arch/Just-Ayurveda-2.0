@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 9 — Just Ayurveda 5-feature mega-batch (usage_guide, customer reviews, coupon analytics, blog MVP, i18n EN/HI). Backend: 24/24 pytest tests PASS — reviews CRUD + anti-spam dedup + rating validation + admin moderation (approve/feature/delete), coupon analytics across 7/30/90/365d windows with all 9 required fields, blog admin CRUD + public listing/reader/related, duplicate slug rejected, unauthenticated admin endpoints return 401/403, /api/orders/create regression returns valid JA-* + order_* IDs (LIVE Razorpay still working, no real payments executed). Frontend: lang toggle data-testid='lang-toggle-btn' switches navbar 'Home' → 'होम', persists via localStorage `ja_lang=hi` across full reload. Blog list page renders with Featured + Welcome to Ayurveda post. Product detail /product/vitalmax-pro-capsules shows Customer Reviews 4.8/4 reviews, 'Write a Review' opens form with Name input, 5-star selector (SVG icons), Title, Comment textarea, Submit. Admin dashboard shows all 7 tabs (Products / Orders / Users / Coupons / Reviews / Blog / Analytics). Analytics tab renders 4 metric cards (Total Coupons=1, Redemptions=0, Revenue ₹0, Discount ₹0) + window selector (7d/30d/90d/365d) + Redemption Trend + Top-performing coupons sections. Blog admin → New Article modal shows all required fields: Title*, Slug, Status, Excerpt, Featured Image URL, Tags, Content (markdown), SEO Title, SEO Description.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Blog modal", "issues": ["DialogContent missing aria-describedby (a11y warning in console). Non-blocking — only console warning."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter9_reviews_blog_analytics.py",
+    "/app/test_reports/pytest/iter9_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L461 — Legacy embedded reviews hard-code created_at='2026-01-01T00:00:00Z'. Sorting/freshness of mixed legacy+new lists is therefore arbitrary. Consider using product.created_at or omitting date for legacy items.",
+    "server.py L519 — Admin review listing has no status whitelist validation; passing status=garbage returns []. Minor — works as no-op, but could be 400.",
+    "server.py L702 — admin_update_blog allows changing status from published → draft but never clears published_at. If desired behaviour is 'once published, stays published_at', this is fine. Worth documenting.",
+    "Anti-spam on /api/reviews dedupes by EXACT name match (case-sensitive) within 24h for guests — a slightly different cased name bypasses dedup. Consider .lower() comparison.",
+    "Blog content field has no max length. Sending a multi-MB markdown blob would be accepted. Consider a sane upper bound (e.g., 100KB).",
+    "DialogContent in admin blog modal logs a11y warning: 'Missing Description or aria-describedby'. Add a DialogDescription for screen readers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter9_reviews_blog_analytics.py"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100% on lang toggle, blog list, product reviews form, admin 7 tabs, analytics cards+sparkline area, blog new-article modal"},
+  "test_credentials": "Admin admin@justayurveda.in / admin123",
+  "seed_data_creation": "Tests create TEST_ prefixed reviews + TEST_blog_* posts and delete them within the same test class. /api/orders/create regression creates one pending order (not paid, not charged — LIVE Razorpay just mints an order_id which auto-expires). No residue.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 new features (usage_guide, reviews+moderation, coupon analytics, blog MVP, i18n) verified. Reviews flow: submit returns pending, admin approve via PUT /api/admin/reviews/{id} {status:'approved'} then appears in GET /api/products/{id}/reviews. Anti-spam: 1 per name+product per 24h for guests (case-sensitive — see code review note). Analytics: full payload shape verified (total_coupons/active_coupons/expired_coupons/total_redemptions/redemption_rate/revenue_from_coupons/total_discount_given/top_coupons/daily_series/window_days/total_paid_orders). Blog: status='published' sets published_at; duplicate slug returns 400; PUT cannot change to existing other slug. Frontend: language toggle persists via i18next browser language detector — `ja_lang` is not the actual key; it stores under `i18nextLng`. Task description says 'localStorage key `ja_lang`' but implementation uses i18next default. Functionally works the same — language persists.",
+  "rca_of_the_issue": "None — no bugs found."
+}

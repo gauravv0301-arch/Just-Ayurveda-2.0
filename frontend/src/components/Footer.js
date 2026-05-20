@@ -6,6 +6,7 @@ const LOGO_URL = "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d
 const quickLinks = [
   { label: 'Home', to: '/' },
   { label: 'Products', to: '/products' },
+  { label: 'Blog', to: '/blog' },
   { label: 'About Us', to: '/about' },
   { label: 'Certifications', to: '/certifications' },
   { label: 'FAQ', to: '/faq' },

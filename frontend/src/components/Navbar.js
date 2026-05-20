@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Menu, X, ShoppingBag, User } from 'lucide-react';
+import { Search, Menu, X, ShoppingBag, User, Globe } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
+import { useTranslation } from 'react-i18next';
 
 const LOGO_URL = "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d6e-8012-e706aac63019/artifacts/xpbtujgt_WhatsApp%20Image%202026-04-15%20at%206.35.09%20PM.jpeg";
-
-const NAV_LINKS = [
-  { label: 'Home', to: '/' },
-  { label: 'Products', to: '/products' },
-  { label: 'About', to: '/about' },
-  { label: 'Certifications', to: '/certifications' },
-  { label: 'FAQ', to: '/faq' },
-  { label: 'Contact', to: '/contact' },
-];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -25,7 +17,24 @@ export default function Navbar() {
   const location = useLocation();
   const { getCount } = useCart();
   const { isLoggedIn, customer } = useCustomer();
+  const { t, i18n } = useTranslation();
   const cartCount = getCount();
+
+  const NAV_LINKS = [
+    { label: t('nav.home'), to: '/' },
+    { label: t('nav.products'), to: '/products' },
+    { label: t('nav.blog'), to: '/blog' },
+    { label: t('nav.about'), to: '/about' },
+    { label: t('nav.certifications'), to: '/certifications' },
+    { label: t('nav.faq'), to: '/faq' },
+    { label: t('nav.contact'), to: '/contact' },
+  ];
+
+  const toggleLang = () => {
+    const next = i18n.language?.startsWith('hi') ? 'en' : 'hi';
+    i18n.changeLanguage(next);
+  };
+  const langLabel = i18n.language?.startsWith('hi') ? 'EN' : 'हिं';
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -51,9 +60,9 @@ export default function Navbar() {
             <span className="hidden lg:block text-[10px] text-[#8dac96] font-medium tracking-wide leading-tight border-l border-[#cfecd6] pl-2.5">Revive Your<br/>Natural Vitality</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6 lg:gap-8">
             {NAV_LINKS.map((link) => (
-              <Link key={link.to} to={link.to} data-testid={`nav-link-${link.label.toLowerCase()}`}
+              <Link key={link.to} to={link.to} data-testid={`nav-link-${link.to.replace('/','') || 'home'}`}
                 className={`text-sm font-medium transition-colors tracking-wide ${location.pathname === link.to ? 'text-[#3bb44b]' : 'text-[#4f5958] hover:text-[#3bb44b]'}`}>
                 {link.label}
               </Link>
@@ -75,6 +84,11 @@ export default function Navbar() {
               </button>
             )}
 
+            <button data-testid="lang-toggle-btn" onClick={toggleLang} title="Switch language"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#cfecd6] text-xs font-semibold text-[#4f5958] hover:bg-[#cfecd6]/40 transition-colors">
+              <Globe className="w-3.5 h-3.5 text-[#3bb44b]" /> {langLabel}
+            </button>
+
             <Link to="/checkout" data-testid="cart-btn" className="relative p-2 text-[#4f5958] hover:text-[#3bb44b] transition-colors">
               <ShoppingBag className="w-5 h-5" />
               {cartCount > 0 && (
@@ -85,11 +99,11 @@ export default function Navbar() {
             {isLoggedIn ? (
               <Link to="/account" data-testid="account-btn" className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#cfecd6]/40 text-[#233232] hover:bg-[#cfecd6] transition-colors text-sm font-medium">
                 <User className="w-4 h-4 text-[#3bb44b]" />
-                <span className="max-w-[80px] truncate">{customer?.name || 'Account'}</span>
+                <span className="max-w-[80px] truncate">{customer?.name || t('nav.account')}</span>
               </Link>
             ) : (
               <Link to="/auth" data-testid="login-btn" className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-full bg-cta-gradient text-white text-sm font-medium btn-hover-scale">
-                <User className="w-4 h-4" /> Login
+                <User className="w-4 h-4" /> {t('nav.login')}
               </Link>
             )}
 
@@ -102,12 +116,16 @@ export default function Navbar() {
                   <SheetTitle className="font-['Outfit'] text-[#233232] text-lg mb-6">Menu</SheetTitle>
                   <div className="flex flex-col gap-4 mt-4">
                     {NAV_LINKS.map((link) => (
-                      <Link key={link.to} to={link.to} data-testid={`mobile-nav-${link.label.toLowerCase()}`}
+                      <Link key={link.to} to={link.to} data-testid={`mobile-nav-${link.to.replace('/','') || 'home'}`}
                         className="text-base font-medium text-[#233232] hover:text-[#3bb44b] transition-colors py-2 px-3 rounded-xl hover:bg-[#cfecd6]/40"
                         onClick={() => setMobileOpen(false)}>
                         {link.label}
                       </Link>
                     ))}
+                    <button data-testid="mobile-lang-toggle" onClick={() => { toggleLang(); }}
+                      className="flex items-center justify-center gap-2 border border-[#cfecd6] text-[#233232] rounded-full py-2.5 px-6 font-medium text-sm">
+                      <Globe className="w-4 h-4 text-[#3bb44b]" /> {i18n.language?.startsWith('hi') ? 'English' : 'हिंदी'}
+                    </button>
                     <a href="https://wa.me/918874888221" target="_blank" rel="noopener noreferrer" data-testid="mobile-whatsapp-btn"
                       className="mt-2 flex items-center justify-center gap-2 bg-[#3bb44b] text-white rounded-full py-3 px-6 font-medium text-sm btn-hover-scale">
                       Chat on WhatsApp

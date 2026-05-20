@@ -23,6 +23,8 @@ import AdminDashboardPage from '@/pages/AdminDashboardPage';
 import CertificationsPage from '@/pages/CertificationsPage';
 import AuthPage from '@/pages/AuthPage';
 import AccountPage from '@/pages/AccountPage';
+import BlogListPage from '@/pages/BlogListPage';
+import BlogPostPage from '@/pages/BlogPostPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -51,6 +53,8 @@ function AppContent() {
           <Route path="/certifications" element={<CertificationsPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/blog" element={<BlogListPage />} />
+          <Route path="/blog/:slug" element={<BlogPostPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/success" element={<OrderSuccessPage />} />
           <Route path="/failed" element={<OrderFailedPage />} />

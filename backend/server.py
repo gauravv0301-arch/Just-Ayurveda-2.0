@@ -441,6 +441,278 @@ async def razorpay_webhook(request: Request):
 
     return {"status": "ok", "event": event}
 
+# ============================================
+# ===== REVIEWS SYSTEM (Customer + Admin) =====
+# ============================================
+class ReviewSubmitRequest(BaseModel):
+    product_id: str
+    name: str
+    rating: int  # 1-5
+    title: str = ""
+    comment: str
+
+@api_router.get("/products/{product_id}/reviews")
+async def get_product_reviews(product_id: str):
+    """Public: list approved reviews + aggregated stats for a product."""
+    cursor = db.reviews.find({"product_id": product_id, "status": "approved"}, {"_id": 0}).sort("created_at", -1)
+    reviews = await cursor.to_list(100)
+    # Include legacy embedded reviews from product doc for backward compatibility
+    product = await db.products.find_one({"id": product_id}, {"_id": 0, "reviews": 1})
+    legacy = [{**r, "is_legacy": True, "created_at": "2026-01-01T00:00:00Z"} for r in (product.get("reviews", []) if product else [])]
+    all_reviews = reviews + legacy
+    total = len(all_reviews)
+    avg = round(sum(r.get("rating", 0) for r in all_reviews) / total, 1) if total else 0
+    return {"reviews": all_reviews, "total": total, "average_rating": avg}
+
+@api_router.post("/reviews")
+async def submit_review(req: ReviewSubmitRequest, customer=Depends(get_optional_customer)):
+    if req.rating < 1 or req.rating > 5:
+        raise HTTPException(400, "Rating must be between 1 and 5")
+    if not req.comment.strip() or len(req.comment.strip()) < 5:
+        raise HTTPException(400, "Review comment must be at least 5 characters")
+    if not req.name.strip():
+        raise HTTPException(400, "Name is required")
+    # Verify product exists
+    product = await db.products.find_one({"id": req.product_id}, {"_id": 0, "id": 1})
+    if not product:
+        raise HTTPException(404, "Product not found")
+    # Anti-spam: if logged in, only 1 review per customer per product. If guest, dedupe by name+product+24h.
+    if customer:
+        existing = await db.reviews.find_one({"product_id": req.product_id, "customer_id": customer['sub']})
+        if existing:
+            raise HTTPException(400, "You have already reviewed this product")
+    else:
+        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        existing = await db.reviews.find_one({
+            "product_id": req.product_id,
+            "name": req.name.strip(),
+            "created_at": {"$gte": recent_cutoff.isoformat()},
+        })
+        if existing:
+            raise HTTPException(400, "A review under this name was already submitted recently")
+    # Verify purchase for logged-in customer (granted optional)
+    verified = False
+    if customer:
+        paid_order = await db.orders.find_one({
+            "customer_id": customer['sub'],
+            "product_id": req.product_id,
+            "status": "paid",
+        })
+        verified = paid_order is not None
+    doc = {
+        "id": str(uuid.uuid4()),
+        "product_id": req.product_id,
+        "name": req.name.strip()[:60],
+        "rating": req.rating,
+        "title": req.title.strip()[:120],
+        "comment": req.comment.strip()[:2000],
+        "customer_id": customer['sub'] if customer else None,
+        "verified_purchase": verified,
+        "status": "pending",  # pending | approved | rejected
+        "featured": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.reviews.insert_one(doc)
+    return {"message": "Review submitted. It will appear after admin approval.", "review_id": doc["id"]}
+
+@api_router.get("/admin/reviews")
+async def admin_list_reviews(admin=Depends(get_current_admin), status: Optional[str] = Query(None)):
+    q = {}
+    if status and status != "all":
+        q["status"] = status
+    reviews = await db.reviews.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Attach product name
+    product_ids = list({r["product_id"] for r in reviews})
+    products = await db.products.find({"id": {"$in": product_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    name_map = {p["id"]: p["name"] for p in products}
+    for r in reviews:
+        r["product_name"] = name_map.get(r["product_id"], "—")
+    return reviews
+
+@api_router.put("/admin/reviews/{review_id}")
+async def admin_update_review(review_id: str, body: dict, admin=Depends(get_current_admin)):
+    allowed = {k: v for k, v in body.items() if k in ("status", "featured")}
+    if not allowed:
+        raise HTTPException(400, "Nothing to update")
+    if "status" in allowed and allowed["status"] not in ("pending", "approved", "rejected"):
+        raise HTTPException(400, "Invalid status")
+    result = await db.reviews.update_one({"id": review_id}, {"$set": allowed})
+    if result.matched_count == 0:
+        raise HTTPException(404, "Review not found")
+    updated = await db.reviews.find_one({"id": review_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/reviews/{review_id}")
+async def admin_delete_review(review_id: str, admin=Depends(get_current_admin)):
+    result = await db.reviews.delete_one({"id": review_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Review not found")
+    return {"message": "Review deleted"}
+
+# ===========================================
+# ===== COUPON ANALYTICS (Admin only) =====
+# ===========================================
+@api_router.get("/admin/analytics/coupons")
+async def admin_coupon_analytics(admin=Depends(get_current_admin), days: int = Query(30, ge=1, le=365)):
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    coupons = await db.coupons.find({}, {"_id": 0}).to_list(500)
+    total_coupons = len(coupons)
+    active = [c for c in coupons if c.get("active") and (not c.get("expiry") or c["expiry"] > datetime.now(timezone.utc).isoformat())]
+    expired = [c for c in coupons if c.get("expiry") and c["expiry"] <= datetime.now(timezone.utc).isoformat()]
+
+    # Orders that used a coupon
+    coupon_orders = await db.orders.find(
+        {"coupon_code": {"$ne": None}, "status": "paid", "created_at": {"$gte": cutoff}},
+        {"_id": 0, "coupon_code": 1, "amount": 1, "discount": 1, "subtotal": 1, "created_at": 1, "product_name": 1},
+    ).to_list(1000)
+    total_redemptions = len(coupon_orders)
+    revenue = sum(o.get("amount", 0) for o in coupon_orders)
+    discount_given = sum(o.get("discount", 0) for o in coupon_orders)
+
+    # Top coupons by redemption count
+    from collections import Counter, defaultdict
+    use_count = Counter(o["coupon_code"] for o in coupon_orders)
+    rev_by_code = defaultdict(float)
+    for o in coupon_orders:
+        rev_by_code[o["coupon_code"]] += o.get("amount", 0)
+    top = sorted(
+        [{"code": c, "redemptions": n, "revenue": round(rev_by_code[c], 2)} for c, n in use_count.items()],
+        key=lambda x: x["redemptions"], reverse=True,
+    )[:5]
+
+    # Daily series for chart (last N days)
+    series_map = defaultdict(lambda: {"redemptions": 0, "revenue": 0.0, "discount": 0.0})
+    for o in coupon_orders:
+        day = (o.get("created_at") or "")[:10]
+        if day:
+            series_map[day]["redemptions"] += 1
+            series_map[day]["revenue"] += o.get("amount", 0)
+            series_map[day]["discount"] += o.get("discount", 0)
+    series = [{"date": d, **v} for d, v in sorted(series_map.items())]
+
+    # Total orders (paid) in window for redemption rate calc
+    total_paid_orders = await db.orders.count_documents({"status": "paid", "created_at": {"$gte": cutoff}})
+    redemption_rate = round((total_redemptions / total_paid_orders) * 100, 1) if total_paid_orders > 0 else 0
+
+    return {
+        "window_days": days,
+        "total_coupons": total_coupons,
+        "active_coupons": len(active),
+        "expired_coupons": len(expired),
+        "total_redemptions": total_redemptions,
+        "redemption_rate": redemption_rate,
+        "revenue_from_coupons": round(revenue, 2),
+        "total_discount_given": round(discount_given, 2),
+        "top_coupons": top,
+        "daily_series": series,
+        "total_paid_orders": total_paid_orders,
+    }
+
+# =================================
+# ===== BLOG / ARTICLES SYSTEM ===
+# =================================
+class BlogCreateRequest(BaseModel):
+    title: str
+    slug: str = ""
+    excerpt: str = ""
+    content: str
+    featured_image: str = ""
+    tags: List[str] = []
+    seo_title: str = ""
+    seo_description: str = ""
+    status: str = "draft"  # draft | published
+
+def _slugify(text: str) -> str:
+    import re as _re
+    s = text.lower().strip()
+    s = _re.sub(r"[^a-z0-9]+", "-", s)
+    return s.strip("-")[:80]
+
+@api_router.get("/blog")
+async def list_blog(tag: Optional[str] = Query(None), search: Optional[str] = Query(None)):
+    q = {"status": "published"}
+    if tag:
+        q["tags"] = tag
+    if search:
+        q["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"excerpt": {"$regex": search, "$options": "i"}},
+            {"content": {"$regex": search, "$options": "i"}},
+        ]
+    posts = await db.blog_posts.find(q, {"_id": 0, "content": 0}).sort("published_at", -1).to_list(100)
+    return posts
+
+@api_router.get("/blog/{slug}")
+async def get_blog_post(slug: str):
+    post = await db.blog_posts.find_one({"slug": slug, "status": "published"}, {"_id": 0})
+    if not post:
+        raise HTTPException(404, "Article not found")
+    related = await db.blog_posts.find(
+        {"status": "published", "slug": {"$ne": slug}, "tags": {"$in": post.get("tags", [])}},
+        {"_id": 0, "content": 0},
+    ).limit(3).to_list(3)
+    post["related"] = related
+    return post
+
+@api_router.get("/admin/blog")
+async def admin_list_blog(admin=Depends(get_current_admin)):
+    posts = await db.blog_posts.find({}, {"_id": 0, "content": 0}).sort("created_at", -1).to_list(500)
+    return posts
+
+@api_router.get("/admin/blog/{post_id}")
+async def admin_get_blog(post_id: str, admin=Depends(get_current_admin)):
+    post = await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(404, "Article not found")
+    return post
+
+@api_router.post("/admin/blog")
+async def admin_create_blog(req: BlogCreateRequest, admin=Depends(get_current_admin)):
+    slug = req.slug.strip() or _slugify(req.title)
+    if not slug:
+        raise HTTPException(400, "Slug or title is required")
+    if await db.blog_posts.find_one({"slug": slug}):
+        raise HTTPException(400, "Slug already exists, please pick another")
+    if req.status not in ("draft", "published"):
+        raise HTTPException(400, "Invalid status")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        **req.model_dump(),
+        "id": str(uuid.uuid4()),
+        "slug": slug,
+        "author": admin.get("email", "Admin"),
+        "created_at": now,
+        "updated_at": now,
+        "published_at": now if req.status == "published" else None,
+    }
+    await db.blog_posts.insert_one(doc)
+    return await db.blog_posts.find_one({"id": doc["id"]}, {"_id": 0})
+
+@api_router.put("/admin/blog/{post_id}")
+async def admin_update_blog(post_id: str, req: BlogCreateRequest, admin=Depends(get_current_admin)):
+    existing = await db.blog_posts.find_one({"id": post_id})
+    if not existing:
+        raise HTTPException(404, "Article not found")
+    slug = req.slug.strip() or _slugify(req.title)
+    # Slug uniqueness if changed
+    if slug != existing.get("slug"):
+        if await db.blog_posts.find_one({"slug": slug, "id": {"$ne": post_id}}):
+            raise HTTPException(400, "Slug already exists")
+    now = datetime.now(timezone.utc).isoformat()
+    update = {**req.model_dump(), "slug": slug, "updated_at": now}
+    # Set published_at when moving draft → published for first time
+    if req.status == "published" and not existing.get("published_at"):
+        update["published_at"] = now
+    await db.blog_posts.update_one({"id": post_id}, {"$set": update})
+    return await db.blog_posts.find_one({"id": post_id}, {"_id": 0})
+
+@api_router.delete("/admin/blog/{post_id}")
+async def admin_delete_blog(post_id: str, admin=Depends(get_current_admin)):
+    result = await db.blog_posts.delete_one({"id": post_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Article not found")
+    return {"message": "Article deleted"}
+
 @api_router.get("/admin/orders")
 async def get_all_orders(admin=Depends(get_current_admin)):
     orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)

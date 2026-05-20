@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, MessageCircle, Star, Leaf, FlaskConical, BookOpen, ChevronRight, ShoppingCart, Heart } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Leaf, FlaskConical, BookOpen, ChevronRight, ShoppingCart, Heart } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +11,7 @@ import { useCustomer } from '@/context/CustomerContext';
 import { trackEvent } from '@/components/GoogleAnalytics';
 import ProductCard from '@/components/ProductCard';
 import ImageGallery from '@/components/ImageGallery';
+import ProductReviews from '@/components/ProductReviews';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -184,22 +185,7 @@ export default function ProductDetailPage() {
         )}
 
         {/* Reviews */}
-        {product.reviews?.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-semibold text-[#233232] font-['Outfit'] mb-6">Customer Reviews</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {product.reviews.map((r, i) => (
-                <div key={i} className="bg-white rounded-2xl p-5 border border-[#cfecd6]" data-testid={`review-${i}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-medium text-[#233232]">{r.name}</span>
-                    <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, s) => <Star key={s} className={`w-4 h-4 ${s < r.rating ? 'fill-[#3bb44b] text-[#3bb44b]' : 'text-[#cfecd6]'}`} />)}</div>
-                  </div>
-                  <p className="text-sm text-[#4f5958] leading-relaxed">{r.comment}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <ProductReviews product={product} />
 
         {/* Related Products */}
         {related.length > 0 && (
