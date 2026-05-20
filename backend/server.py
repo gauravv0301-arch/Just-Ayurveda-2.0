@@ -394,12 +394,26 @@ async def razorpay_webhook(request: Request):
         raise HTTPException(400, "Invalid JSON")
 
     event = payload.get("event")
+    event_id = payload.get("id") or payload.get("event_id") or f"{event}:{rzp_payment_id_check}" if (rzp_payment_id_check := (payload.get('payload') or {}).get('payment', {}).get('entity', {}).get('id')) else event
     pmt = (payload.get("payload") or {}).get("payment", {}).get("entity", {})
     rzp_order_id = pmt.get("order_id")
     rzp_payment_id = pmt.get("id")
 
     if not rzp_order_id:
         return {"status": "ignored", "reason": "no order_id"}
+
+    # Idempotency: skip if this event was already processed
+    if event_id:
+        already = await db.webhook_events.find_one({"event_id": event_id})
+        if already:
+            return {"status": "ok", "event": event, "duplicate": True}
+        await db.webhook_events.insert_one({
+            "event_id": event_id,
+            "event": event,
+            "rzp_order_id": rzp_order_id,
+            "rzp_payment_id": rzp_payment_id,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+        })
 
     if event == "payment.captured":
         await db.orders.update_one(
@@ -617,30 +631,94 @@ async def get_current_customer(credentials: HTTPAuthorizationCredentials = Depen
     except pyjwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
 
+# ===== TWILIO SMS CLIENT =====
+try:
+    from twilio.rest import Client as TwilioClient
+    from twilio.base.exceptions import TwilioRestException
+    _tw_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+    _tw_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+    _tw_phone = os.environ.get('TWILIO_PHONE_NUMBER', '')
+    twilio_client = TwilioClient(_tw_sid, _tw_token) if _tw_sid and _tw_token else None
+except Exception as _e:
+    twilio_client = None
+    TwilioRestException = Exception
+    logging.warning(f"Twilio not available: {_e}")
+
+def _normalize_indian_phone(phone: str) -> str:
+    """Ensure phone is in E.164 format for India. Returns +91XXXXXXXXXX."""
+    p = phone.strip().replace(" ", "").replace("-", "")
+    if p.startswith('+'):
+        return p
+    if p.startswith('91') and len(p) == 12:
+        return f"+{p}"
+    if len(p) == 10 and p[0] in '6789':
+        return f"+91{p}"
+    return f"+91{p}"
+
 @api_router.post("/customer/send-otp")
 async def send_otp(req: SendOtpRequest):
-    phone = req.phone.strip().replace(" ", "")
-    if len(phone) < 10:
-        raise HTTPException(400, "Invalid phone number")
+    phone = req.phone.strip().replace(" ", "").replace("-", "")
+    # Strip +91/91 prefix to store canonical 10-digit
+    if phone.startswith('+91'):
+        phone = phone[3:]
+    elif phone.startswith('91') and len(phone) == 12:
+        phone = phone[2:]
+    if len(phone) != 10 or phone[0] not in '6789':
+        raise HTTPException(400, "Invalid Indian mobile number")
+
+    # Rate limit: max 3 OTPs per phone per 10 minutes
+    window_start = datetime.now(timezone.utc) - timedelta(minutes=10)
+    recent_count = await db.otp_log.count_documents({"phone": phone, "created_at": {"$gte": window_start}})
+    if recent_count >= 3:
+        raise HTTPException(429, "Too many OTP requests. Please try again in 10 minutes.")
+
     otp = ''.join(random.choices(string.digits, k=6))
     await db.otps.delete_many({"phone": phone})
-    await db.otps.insert_one({"phone": phone, "otp": otp, "created_at": datetime.now(timezone.utc), "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5)})
-
-    # ===== SMS INTEGRATION POINT =====
-    # To enable real SMS, set OTP_MODE=production in .env and integrate your SMS provider:
-    #
-    # Example with Twilio:
-    #   from twilio.rest import Client
-    #   twilio_client = Client(os.environ['TWILIO_ACCOUNT_SID'], os.environ['TWILIO_AUTH_TOKEN'])
-    #   twilio_client.messages.create(body=f"Your Just Ayurveda OTP is {otp}", from_=os.environ['TWILIO_PHONE'], to=f"+91{phone}")
-    #
-    # Example with MSG91:
-    #   requests.post("https://control.msg91.com/api/v5/otp", json={"mobile": f"91{phone}", "otp": otp, ...}, headers={"authkey": os.environ['MSG91_AUTH_KEY']})
+    await db.otps.insert_one({
+        "phone": phone, "otp": otp,
+        "created_at": datetime.now(timezone.utc),
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "attempts": 0,
+    })
 
     otp_mode = os.environ.get('OTP_MODE', 'dev')
-    response = {"message": "OTP sent successfully"}
-    if otp_mode == 'dev':
-        response["dev_otp"] = otp  # Only exposed in dev mode — remove in production by setting OTP_MODE=production
+    response = {"message": "OTP sent successfully", "expires_in": 300}
+    sms_sent = False
+    sms_error = None
+
+    if otp_mode == 'production' and twilio_client and _tw_phone:
+        try:
+            to_phone = _normalize_indian_phone(phone)
+            msg = twilio_client.messages.create(
+                body=f"{otp} is your Just Ayurveda login OTP. Valid for 5 minutes. Do not share this code with anyone.",
+                from_=_tw_phone,
+                to=to_phone,
+            )
+            sms_sent = True
+            logging.info(f"OTP SMS sent to {to_phone[:6]}****{to_phone[-2:]} via Twilio SID={msg.sid}")
+        except TwilioRestException as e:
+            sms_error = f"Twilio error {e.code}: {e.msg}"
+            logging.error(sms_error)
+        except Exception as e:
+            sms_error = f"SMS send failed: {e}"
+            logging.error(sms_error)
+
+    # Log every OTP send for rate-limit tracking and audit
+    await db.otp_log.insert_one({
+        "phone": phone,
+        "created_at": datetime.now(timezone.utc),
+        "sms_sent": sms_sent,
+        "sms_error": sms_error,
+        "mode": otp_mode,
+    })
+
+    # Fallback to dev mode response if Twilio failed or not in production
+    if not sms_sent and otp_mode != 'production':
+        response["dev_otp"] = otp
+    elif not sms_sent and sms_error:
+        # In production, if SMS fails outright (e.g., bad number), raise — don't silently fail
+        raise HTTPException(502, "Could not deliver SMS. Please try again or contact support.")
+
     return response
 
 @api_router.post("/customer/verify-otp")
@@ -870,6 +948,11 @@ async def startup():
         logging.error(f"Object storage init failed: {e}")
     await db.admin_users.create_index("email", unique=True)
     await db.otps.create_index("expires_at", expireAfterSeconds=0)
+    # Auto-delete OTP audit logs after 24h
+    try:
+        await db.otp_log.create_index("created_at", expireAfterSeconds=86400)
+    except Exception:
+        pass
     try:
         await db.customers.create_index("phone", unique=True, sparse=True)
         await db.customers.create_index("email", sparse=True)

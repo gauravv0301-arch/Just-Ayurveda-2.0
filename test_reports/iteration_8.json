@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 8 — full prod-hardening review. Backend: 13/13 pytest tests PASS covering health, Razorpay LIVE order create (verified order_id format + paise + INR), webhook HMAC SHA256 signature rejection (bad/missing), payment.captured/failed status updates, idempotency dedup via event_id, OTP Indian-mobile validation, rate limit (4th call → 429), verify-otp happy + invalid paths, and multi-image admin upload incl. MIME rejection. Frontend: admin login + product Edit modal opens with NEW DnD MultiImageUploader; data-testid='drag-handle-0' present and visible, SVG class 'lucide lucide-grip-vertical' confirmed, helper text 'Drag the grip handle to reorder images' visible, Primary badge present on first thumb. Products grid (5 items) renders cleanly; checkout page falls back to 'Your cart is empty' correctly. Did not simulate actual drag pointer events (per task note).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Customer detail page", "issues": ["Note: the slug 'ayurveda-wellness-30' from the task description is the app subdomain, not a real product slug — the page correctly shows 'Product not found' (expected, not a bug)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8_prod_hardening.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L397 — event_id computation uses a walrus operator inside an inline ternary: `... f\"{event}:{rzp_payment_id_check}\" if (rzp_payment_id_check := ...) else event`. Works due to operator precedence (`A or B or C if COND else D` ⇒ `(A or B or C) if COND else D`), but the readability is fragile. Suggest refactoring to a plain `if/else` block for maintainability — current behaviour is correct (verified by idempotency test).",
+    "Webhook returns 503 if RAZORPAY_WEBHOOK_SECRET not set — could confuse Razorpay dashboard test pings. Acceptable since secret is configured in .env.",
+    "OTP rate-limit counts even failed Twilio sends (sms_sent=False rows still in otp_log) — this is intentional to prevent abuse, but worth documenting for support."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter8_prod_hardening.py"],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% on tested admin DnD + customer pages"},
+  "test_credentials": "Admin admin@justayurveda.in / admin123",
+  "seed_data_creation": "Tests insert + cleanup their own TEST_ documents in db.orders / db.webhook_events / db.otps / db.otp_log / db.customers. No residue.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Razorpay LIVE keys are working — order create returns order_<id>. Webhook signature verification + idempotency + status updates are functionally correct. Twilio is wired in production mode; trial account can only message verified numbers — the test does NOT depend on Twilio actually delivering (treats 200 or 502 as both indicating code path executed) then enforces 429 on the 4th send. Admin DnD UI uses @dnd-kit with data-testid drag-handle-{idx}; helper text is in place. Did NOT exercise an actual drag simulation (per task instruction — DnD pointer events fragile in headless).",
+  "rca_of_the_issue": "None — no bugs found this iteration."
+}
