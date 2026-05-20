@@ -1,60 +1,83 @@
 # Just Ayurveda — PRD & Project Memory
 
 ## Original Problem Statement
-Premium e-commerce website for "Just Ayurveda" — men's Ayurvedic wellness brand. Customer-facing storefront (Home, Products, Detail, About, Contact, FAQ, Checkout, Certifications, Auth/Account) + Admin panel (Products, Orders, Users, Coupons). Integrations: Razorpay payments, 3D Three.js hero, Emergent Object Storage for product media.
+Premium e-commerce website for "Just Ayurveda" — men's Ayurvedic wellness brand. Customer storefront + admin panel. Live integrations: Razorpay payments, Twilio SMS OTP, Emergent Object Storage for product media, 3D Three.js hero.
 
 ## Architecture
-- **Frontend**: React (CRA) + Tailwind CSS + Shadcn UI + Framer Motion + Three.js
-- **Backend**: FastAPI + MongoDB (Motor) + Razorpay SDK + Emergent Object Storage
-- **DB**: MongoDB (products, admin_users, customers, orders, coupons, otps, contact_messages, files)
-- **Auth**: JWT — admin (email/password) + customer (phone OTP / email-password)
-- **Payments**: Razorpay (test mode)
-- **Storage**: Emergent Object Storage (uses EMERGENT_LLM_KEY)
+- **Frontend**: React (CRA) + Tailwind + Shadcn UI + Framer Motion + Three.js + @dnd-kit
+- **Backend**: FastAPI + MongoDB (Motor) + Razorpay SDK + Twilio SDK + Emergent Object Storage
+- **DB**: MongoDB (products, admin_users, customers, orders, coupons, otps, otp_log, files, webhook_events, contact_messages)
+- **Auth**: JWT — admin (email/password) + customer (phone OTP via Twilio / email-password)
+- **Payments**: Razorpay LIVE mode + signed webhooks
+- **Storage**: Emergent Object Storage (EMERGENT_LLM_KEY)
 
 ## Features Implemented
-- [x] Multi-page routing (Home, Products, Detail, About, Contact, FAQ, Checkout, Order Success/Failure, Auth, Account, Certifications, Admin login/dashboard)
-- [x] Product Quick View Modal with 3 CTAs (Add to Cart / Buy Now / View Details)
-- [x] Cart system (CartContext + localStorage)
-- [x] Razorpay checkout with coupon code validation + discount
-- [x] Customer OTP auth (dev_otp returned in dev mode) + email/password fallback
-- [x] Address book (CRUD, default selection, pincode auto-detect)
-- [x] Wishlist (synced when logged in)
-- [x] Admin: Products + Orders + Users (block/unblock) + Coupons CRUD
+
+### Customer
+- [x] Routes: Home, Products, Detail, About, Contact, FAQ, Checkout, Order Success/Failure, Auth, Account, Certifications
+- [x] Cart (CartContext + localStorage)
+- [x] Razorpay LIVE checkout + signature verification
+- [x] Coupons (CRUD + validation + auto usage increment)
+- [x] Wishlist (logged-in DB sync)
+- [x] Address book (CRUD, default, pincode auto-detect)
+- [x] Customer OTP auth via Twilio SMS (real prod SMS, rate-limited 3/10min)
 - [x] Three.js 3D hero scene
-- [x] Certifications page with PDF viewer + download
-- [x] White-labeled (no Emergent branding)
+- [x] Certifications page with PDF viewer
+- [x] Portrait product image layouts (object-contain, 3:4 cards / 4:5 detail)
+
+### Admin
+- [x] Product CRUD with multi-image gallery (drag-and-drop reorder via @dnd-kit, max 5 images, primary star, JPG/PNG/WEBP, 5MB)
+- [x] Orders viewer (status, coupon, customer)
+- [x] Users (search, block/unblock, view orders + addresses)
+- [x] Coupons CRUD
+
+### Infrastructure
 - [x] `/api/health` for k8s readiness
-- [x] **Multi-image product galleries (NEW — Feb 2026)**
-  - Backend: `POST /api/admin/upload` (multipart, multi-file, MIME + 5MB validation), `GET /api/files/{path}` public serve, Emergent Object Storage integration
-  - Product schema: `images: [{url, isPrimary}]` array; legacy `image` field auto-synced to primary URL on save
-  - Backfill on startup: legacy single-image products converted to `images` array
-  - Admin: `MultiImageUploader` (drag & drop, multi-pick, thumbnails, set primary, delete, reorder via arrows, max 5 images, progress indicator)
-  - Customer: `ImageGallery` on ProductDetailPage (full size, prev/next, thumbnails, hover-zoom) and ProductQuickView (compact carousel, mobile swipe)
-  - Backward compatibility: old products with only `image` still render via `getPrimaryImage`/`resolveImageUrl` helpers
+- [x] White-labeled (no Emergent branding)
+- [x] Emergent Object Storage for product media
+- [x] Twilio real SMS OTP integration with rate limit + audit log (TTL 24h)
+- [x] Razorpay LIVE keys + signed webhook `/api/razorpay/webhook` (HMAC SHA256, idempotent via event_id)
 
 ## Credentials
-- Admin: `admin@justayurveda.in` / `admin123` (see `/app/memory/test_credentials.md`)
-- Razorpay test keys in `/app/backend/.env`
-- `EMERGENT_LLM_KEY` set in `/app/backend/.env` for object storage
+- See `/app/memory/test_credentials.md`
+- Admin: `admin@justayurveda.in` / `admin123`
+- Razorpay: LIVE (`rzp_live_SraPjUJJIZAA6I`) — real money
+- Twilio: trial account (sends only to verified numbers)
+- Webhook secret: stored in `RAZORPAY_WEBHOOK_SECRET` env var
 
 ## Testing
-- Backend: 100% (12/12 tests for upload + serve + product schema + backfill in iteration 7)
-- Frontend: 100% on admin upload UI + customer gallery flows (iteration 7)
-- Test file: `/app/backend/tests/test_multi_image_upload.py`
-- Latest report: `/app/test_reports/iteration_7.json`
+- Backend pytest: 100% (13/13 in iteration 8, plus 12/12 in iteration 7)
+- Frontend: admin + customer flows verified via testing agent (iteration 8)
+- Test reports: `/app/test_reports/iteration_8.json` (latest)
+- Test files: `/app/backend/tests/test_iter8_prod_hardening.py`, `/app/backend/tests/test_multi_image_upload.py`
+
+## Manual Steps Required (User)
+1. **Add Razorpay webhook in dashboard**:
+   - URL: `https://justayurveda.life/api/razorpay/webhook`
+   - Secret: `whsec_ja_1b77f0b78873d838191d666a990089a679228c83`
+   - Events: `payment.captured`, `payment.failed`
+2. **Upgrade Twilio from trial** (or verify Indian numbers in Twilio Console → Phone Numbers → Verified Caller IDs) to send SMS to arbitrary numbers
+3. **Redeploy to production** to push these env vars to `justayurveda.life`
 
 ## Backlog
-- **P1**: Real SMS provider (Twilio/MSG91) integration to replace `dev_otp` in `send_otp` endpoint
-- **P1**: Real Razorpay live keys + GA4 production ID
-- **P2**: Refactor `server.py` (820+ lines) into modular `backend/routes/`, `backend/models/` structure
-- **P2**: Drag-and-drop reordering of admin images (currently uses arrow buttons)
-- **P2**: Customer review submission form
+- **P2**: Refactor `server.py` (~960 lines) into modular `backend/routes/` + `backend/models/`
+- **P2**: Customer review submission form (currently seed-only reviews)
+- **P2**: Refund flow + COD hybrid + Razorpay subscriptions
 - **P2**: Blog / Articles section
-- **P2**: Multi-language support (EN/HI)
+- **P2**: Multi-language EN/HI
+- **P3**: Admin coupon analytics dashboard (redemption rate, revenue impact)
+- **P3**: Server-Sent Events / WebSocket for live order status
 
-## Recent Changes (Feb 12, 2026)
-- Implemented multi-image gallery system end-to-end (admin upload + customer carousel)
-- Added Emergent Object Storage integration (storage helpers in `server.py`)
-- Added `MultiImageUploader.js`, `ImageGallery.js`, `lib/images.js` (helper utils)
-- Updated `ProductCard`, `ProductQuickView`, `ProductDetailPage`, `CheckoutPage`, `AccountPage` to use new image helpers
-- Auto-backfill on startup for existing seed products
+## Recent Changes (May 2026)
+- Razorpay switched to **LIVE** mode (`rzp_live_*`) + webhook endpoint
+- Twilio SMS OTP wired (replaces dev_otp) with rate limiting
+- Drag-and-drop image reordering in admin via @dnd-kit/sortable
+- Portrait image layout pass across all product views
+- Multi-image product gallery (admin uploader + customer ImageGallery)
+- Emergent Object Storage integration
+
+## Recent Changes (Feb 2026)
+- Multi-image gallery system end-to-end
+- White-labeling completed
+- Customer accounts + wishlist + coupons + addresses
+- Certifications page with PDF viewer
