@@ -313,6 +313,8 @@ async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_cu
     discount = req.discount_amount if req.discount_amount > 0 else 0
     final_amount = subtotal - discount
     amount_paise = int(final_amount * 100)
+    if amount_paise < 100:
+        raise HTTPException(400, "Order amount must be at least ₹1 (100 paise)")
     order_id = f"JA-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
     razorpay_order_id = None
     if razorpay_client:
@@ -320,8 +322,11 @@ async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_cu
             rzp_order = razorpay_client.order.create({"amount": amount_paise, "currency": "INR", "receipt": order_id[:40], "payment_capture": 1})
             razorpay_order_id = rzp_order['id']
         except Exception as e:
-            logging.error(f"Razorpay error: {e}")
-            raise HTTPException(400, f"Payment initialization failed. Please ensure Razorpay keys are configured correctly.")
+            err_str = str(e).lower()
+            logging.error(f"Razorpay order create failed: {e}")
+            if 'authentication' in err_str or 'auth' in err_str or '401' in err_str:
+                raise HTTPException(401, "Razorpay authentication failed. Please contact support.")
+            raise HTTPException(502, f"Could not initiate payment. {str(e)[:200]}")
     else:
         raise HTTPException(400, "Payment gateway not configured. Add valid Razorpay API keys to backend .env")
     # Increment coupon usage

@@ -163,9 +163,13 @@ export default function CheckoutPage() {
   const buildAddress = () =>
     [form.house, form.street, form.landmark, form.city, form.state, form.pincode].filter(Boolean).join(', ');
 
+  const [paymentError, setPaymentError] = useState(null);
+
   const handlePayment = async () => {
+    setPaymentError(null);
     if (!validate()) { toast.error('Please fill all required fields'); return; }
     if (items.length === 0) { toast.error('Your cart is empty'); return; }
+    if (!RAZORPAY_KEY) { setPaymentError({ title: 'Payment gateway not configured', detail: 'Razorpay key missing. Please contact support.' }); return; }
 
     // Save address for future
     localStorage.setItem('ja_checkout_addr', JSON.stringify(form));
@@ -173,19 +177,41 @@ export default function CheckoutPage() {
     setProcessing(true);
     trackEvent('begin_checkout', { value: total, items: items.length });
 
+    let data;
     try {
       const item = items[0];
       const headers = isLoggedIn ? authHeaders() : {};
-      const { data } = await axios.post(`${API}/orders/create`, {
+      const resp = await axios.post(`${API}/orders/create`, {
         product_id: item.product.id, quantity: item.quantity,
         customer_name: form.name, customer_email: form.email,
         customer_phone: form.phone, customer_address: buildAddress(),
         coupon_code: couponApplied?.code || '', discount_amount: discount,
       }, { headers });
+      data = resp.data;
+      if (!data?.razorpay_order_id) throw new Error('Server returned an invalid payment session.');
+    } catch (err) {
+      console.error('Order creation failed:', err);
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail || err.message || 'Unknown error';
+      setPaymentError({
+        title: status === 401 ? 'Razorpay authentication failed'
+              : status === 502 ? 'Could not connect to payment gateway'
+              : status === 400 ? 'Invalid order details'
+              : 'Server unable to create order',
+        detail,
+      });
+      setProcessing(false);
+      return;
+    }
 
-      const loaded = await loadRazorpayScript();
-      if (!loaded) { toast.error('Failed to load payment gateway'); setProcessing(false); return; }
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      setPaymentError({ title: 'Razorpay script failed to load', detail: 'Please check your internet connection and try again.' });
+      setProcessing(false);
+      return;
+    }
 
+    try {
       const options = {
         key: RAZORPAY_KEY, amount: data.amount, currency: data.currency,
         name: 'Just Ayurveda', description: `Order: ${data.product_name}`,
@@ -201,17 +227,26 @@ export default function CheckoutPage() {
             trackEvent('purchase', { order_id: data.order_id, value: total });
             clearCart();
             navigate(`/success?order_id=${data.order_id}`);
-          } catch { navigate(`/failed?order_id=${data.order_id}`); }
+          } catch (vErr) {
+            console.error('Payment verification failed:', vErr);
+            navigate(`/failed?order_id=${data.order_id}&reason=verification_failed`);
+          }
         },
-        modal: { ondismiss: () => { setProcessing(false); toast.info('Payment cancelled'); } },
+        modal: { ondismiss: () => { setProcessing(false); toast.info('Payment cancelled. You can retry anytime.'); } },
         prefill: { name: form.name, email: form.email, contact: form.phone },
         theme: { color: '#3bb44b' },
       };
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => { navigate(`/failed?order_id=${data.order_id}`); });
+      rzp.on('payment.failed', (resp) => {
+        console.error('Razorpay payment.failed:', resp?.error);
+        const reason = resp?.error?.description || 'Payment was unsuccessful';
+        setPaymentError({ title: 'Payment failed', detail: reason });
+        setProcessing(false);
+      });
       rzp.open();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to create order. Please try again.');
+      console.error('Razorpay modal open failed:', err);
+      setPaymentError({ title: 'Unable to initialize payment', detail: err.message || 'Razorpay checkout failed to open.' });
       setProcessing(false);
     }
   };
@@ -395,6 +430,27 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm text-[#4f5958] mt-1"><span>Shipping</span><span className="text-[#3bb44b]">Free</span></div>
                 <div className="flex justify-between font-bold text-[#233232] text-lg mt-3 font-['Outfit']"><span>Total</span><span>{"\u20B9"}{finalTotal.toLocaleString('en-IN')}</span></div>
               </div>
+
+              {paymentError && (
+                <div data-testid="payment-error-banner" className="mt-6 bg-red-50 border border-red-200 rounded-2xl p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
+                      <X className="w-4 h-4" /> {paymentError.title}
+                    </p>
+                    <p className="text-xs text-red-600 mt-1">{paymentError.detail}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button data-testid="retry-payment-btn" onClick={handlePayment}
+                      className="flex-1 bg-[#3bb44b] text-white rounded-full py-2 text-sm font-medium hover:bg-[#2e9038]">
+                      Retry Payment
+                    </button>
+                    <button onClick={() => window.location.reload()}
+                      className="px-4 bg-white border border-[#cfecd6] text-[#4f5958] rounded-full py-2 text-sm font-medium hover:bg-[#cfecd6]/40">
+                      Reload
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <button data-testid="pay-now-btn" onClick={handlePayment} disabled={processing}
                 className="w-full mt-6 bg-cta-gradient text-white rounded-full py-3.5 font-semibold flex items-center justify-center gap-2 btn-hover-scale disabled:opacity-60 disabled:cursor-not-allowed">
