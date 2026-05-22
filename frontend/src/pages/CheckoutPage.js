@@ -45,7 +45,9 @@ export default function CheckoutPage() {
     try {
       const s = localStorage.getItem('ja_checkout_addr');
       if (s) { const parsed = JSON.parse(s); return { ...defaultForm, ...parsed }; }
-    } catch {}
+    } catch (e) {
+      console.warn('Could not load saved checkout address from localStorage:', e);
+    }
     return defaultForm;
   });
   const [errors, setErrors] = useState({});

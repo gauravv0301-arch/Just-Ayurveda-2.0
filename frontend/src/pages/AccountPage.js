@@ -35,7 +35,8 @@ export default function AccountPage() {
   }, [authLoading, isLoggedIn, navigate]);
 
   const fetchOrders = useCallback(async () => {
-    try { const { data } = await axios.get(`${API}/customer/orders`, { headers: authHeaders() }); setOrders(data); } catch {}
+    try { const { data } = await axios.get(`${API}/customer/orders`, { headers: authHeaders() }); setOrders(data); }
+    catch (e) { console.error('Fetch orders failed:', e); }
   }, [authHeaders]);
 
   const fetchWishlist = useCallback(async () => {
@@ -43,7 +44,7 @@ export default function AccountPage() {
     try {
       const { data: allProducts } = await axios.get(`${API}/products`);
       setWishlistProducts(allProducts.filter(p => customer.wishlist.includes(p.id)));
-    } catch {}
+    } catch (e) { console.error('Fetch wishlist failed:', e); }
   }, [customer?.wishlist]);
 
   useEffect(() => { if (isLoggedIn) { fetchOrders(); fetchWishlist(); } }, [isLoggedIn, fetchOrders, fetchWishlist]);
@@ -51,7 +52,8 @@ export default function AccountPage() {
 
   const handleSaveProfile = async () => {
     setSaving(true);
-    try { await updateProfile({ name: editName, email: editEmail }); toast.success('Profile updated'); } catch { toast.error('Update failed'); }
+    try { await updateProfile({ name: editName, email: editEmail }); toast.success('Profile updated'); }
+    catch (e) { console.error('Profile update failed:', e); toast.error('Update failed'); }
     finally { setSaving(false); }
   };
 
@@ -73,15 +75,18 @@ export default function AccountPage() {
 
   const deleteAddr = async (id) => {
     if (!window.confirm('Delete this address?')) return;
-    try { await axios.delete(`${API}/customer/addresses/${id}`, { headers: authHeaders() }); await refreshProfile(); toast.success('Address deleted'); } catch { toast.error('Failed'); }
+    try { await axios.delete(`${API}/customer/addresses/${id}`, { headers: authHeaders() }); await refreshProfile(); toast.success('Address deleted'); }
+    catch (e) { console.error('Delete address failed:', e); toast.error('Failed'); }
   };
 
   const setDefault = async (id) => {
-    try { await axios.put(`${API}/customer/addresses/${id}/default`, {}, { headers: authHeaders() }); await refreshProfile(); toast.success('Default address set'); } catch {}
+    try { await axios.put(`${API}/customer/addresses/${id}/default`, {}, { headers: authHeaders() }); await refreshProfile(); toast.success('Default address set'); }
+    catch (e) { console.error('Set default failed:', e); toast.error('Could not set default address'); }
   };
 
   const removeWishlist = async (pid) => {
-    try { await axios.delete(`${API}/customer/wishlist/${pid}`, { headers: authHeaders() }); await refreshProfile(); toast.success('Removed from wishlist'); } catch {}
+    try { await axios.delete(`${API}/customer/wishlist/${pid}`, { headers: authHeaders() }); await refreshProfile(); toast.success('Removed from wishlist'); }
+    catch (e) { console.error('Remove wishlist failed:', e); toast.error('Could not remove from wishlist'); }
   };
 
   const openAddAddr = () => { setEditAddr(null); setAddrForm(emptyAddr); setAddrDialog(true); };

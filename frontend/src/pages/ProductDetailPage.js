@@ -132,7 +132,7 @@ export default function ProductDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 mt-5">
-              {product.highlights.map((h, i) => <span key={i} className="text-sm bg-[#cfecd6]/50 text-[#4f5958] px-3 py-1.5 rounded-full border border-[#cfecd6]">{h}</span>)}
+              {product.highlights.map((h, i) => <span key={`${h}-${i}`} className="text-sm bg-[#cfecd6]/50 text-[#4f5958] px-3 py-1.5 rounded-full border border-[#cfecd6]">{h}</span>)}
             </div>
 
             <div className="flex gap-3 mt-8">
@@ -175,7 +175,7 @@ export default function ProductDetailPage() {
             <h2 className="text-2xl font-semibold text-[#233232] font-['Outfit'] mb-6">Frequently Asked Questions</h2>
             <Accordion type="single" collapsible className="space-y-3">
               {product.faqs.map((faq, i) => (
-                <AccordionItem key={i} value={`faq-${i}`} className="border border-[#cfecd6] rounded-2xl px-5 bg-white data-[state=open]:bg-[#cfecd6]/10">
+                <AccordionItem key={faq.question || `faq-${i}`} value={`faq-${i}`} className="border border-[#cfecd6] rounded-2xl px-5 bg-white data-[state=open]:bg-[#cfecd6]/10">
                   <AccordionTrigger data-testid={`product-faq-${i}`} className="text-sm md:text-base text-[#233232] font-medium hover:no-underline py-4 text-left">{faq.question}</AccordionTrigger>
                   <AccordionContent className="text-sm text-[#4f5958] leading-relaxed pb-4">{faq.answer}</AccordionContent>
                 </AccordionItem>

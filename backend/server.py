@@ -9,6 +9,7 @@ import uuid
 import bcrypt
 import jwt as pyjwt
 import random
+import secrets as _secrets
 import string
 import requests as http_requests
 from pathlib import Path
@@ -315,7 +316,7 @@ async def create_order(req: OrderCreateRequest, customer=Depends(get_optional_cu
     amount_paise = int(final_amount * 100)
     if amount_paise < 100:
         raise HTTPException(400, "Order amount must be at least ₹1 (100 paise)")
-    order_id = f"JA-{''.join(random.choices(string.ascii_uppercase + string.digits, k=8))}"
+    order_id = f"JA-{_secrets.token_urlsafe(6).upper().replace('_','').replace('-','')[:8]}"
     razorpay_order_id = None
     if razorpay_client:
         try:
@@ -949,7 +950,8 @@ async def send_otp(req: SendOtpRequest):
     if recent_count >= 3:
         raise HTTPException(429, "Too many OTP requests. Please try again in 10 minutes.")
 
-    otp = ''.join(random.choices(string.digits, k=6))
+    # Cryptographically secure 6-digit OTP (uniform distribution)
+    otp = f"{_secrets.randbelow(900000) + 100000}"
     await db.otps.delete_many({"phone": phone})
     await db.otps.insert_one({
         "phone": phone, "otp": otp,

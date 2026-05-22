@@ -21,7 +21,9 @@ export function CustomerProvider({ children }) {
     try {
       const { data } = await axios.get(`${API}/customer/me`, { headers: { Authorization: `Bearer ${token}` } });
       setCustomer(data);
-    } catch {
+    } catch (e) {
+      // Token invalid/expired — clear it. Logging the type, not the error body, to avoid noisy 401s in console.
+      if (e?.response?.status !== 401) console.warn('Profile fetch failed:', e?.response?.status || e?.message);
       localStorage.removeItem('ja_customer_token');
       setCustomer(null);
     } finally {

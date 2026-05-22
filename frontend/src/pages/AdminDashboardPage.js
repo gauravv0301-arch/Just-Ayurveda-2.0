@@ -169,7 +169,8 @@ export default function AdminDashboardPage() {
 
   // User management
   const searchUsers = async () => {
-    try { const { data } = await axios.get(`${API}/admin/users?search=${userSearch}`, { headers: getHeaders() }); setUsers(data); } catch {}
+    try { const { data } = await axios.get(`${API}/admin/users?search=${userSearch}`, { headers: getHeaders() }); setUsers(data); }
+    catch (e) { console.error('User search failed:', e); }
   };
   const toggleBlockUser = async (userId) => {
     try { const { data } = await axios.put(`${API}/admin/users/${userId}/block`, {}, { headers: getHeaders() }); toast.success(data.blocked ? 'User blocked' : 'User unblocked'); fetchData(); } catch { toast.error('Failed'); }
@@ -199,8 +200,8 @@ export default function AdminDashboardPage() {
             { label: 'Orders', value: orders.length, icon: ShoppingCart, color: 'bg-blue-50 text-blue-600' },
             { label: 'Users', value: users.length, icon: Users, color: 'bg-purple-50 text-purple-600' },
             { label: 'Coupons', value: coupons.filter(c => c.active).length, icon: Tag, color: 'bg-amber-50 text-amber-600' },
-          ].map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 border border-[#cfecd6]">
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-2xl p-5 border border-[#cfecd6]">
               <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center mb-3`}><s.icon className="w-5 h-5" /></div>
               <p className="text-2xl font-bold text-[#233232] font-['Outfit']">{s.value}</p>
               <p className="text-sm text-[#4f5958]">{s.label}</p>
@@ -454,8 +455,8 @@ export default function AdminDashboardPage() {
                     { label: 'Total Redemptions', value: analytics.total_redemptions, sub: `${analytics.redemption_rate}% of all paid orders`, color: 'bg-blue-50 text-blue-600' },
                     { label: 'Revenue (Coupon Orders)', value: `₹${(analytics.revenue_from_coupons || 0).toLocaleString('en-IN')}`, sub: `${analytics.total_paid_orders} paid orders total`, color: 'bg-purple-50 text-purple-600' },
                     { label: 'Total Discount Given', value: `₹${(analytics.total_discount_given || 0).toLocaleString('en-IN')}`, sub: `Avg ${analytics.total_redemptions > 0 ? Math.round(analytics.total_discount_given / analytics.total_redemptions) : 0}/order`, color: 'bg-amber-50 text-amber-600' },
-                  ].map((c, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-5 border border-[#cfecd6]">
+                  ].map((c) => (
+                    <div key={c.label} className="bg-white rounded-2xl p-5 border border-[#cfecd6]">
                       <p className="text-xs text-[#8dac96] uppercase tracking-wider">{c.label}</p>
                       <p className="text-2xl font-bold text-[#233232] font-['Outfit'] mt-2">{c.value}</p>
                       <p className="text-xs text-[#4f5958] mt-1">{c.sub}</p>
@@ -472,8 +473,8 @@ export default function AdminDashboardPage() {
                     <div className="flex items-end gap-1 h-32 overflow-x-auto">
                       {(() => {
                         const max = Math.max(...analytics.daily_series.map(s => s.redemptions), 1);
-                        return analytics.daily_series.map((s, i) => (
-                          <div key={i} className="flex flex-col items-center gap-1 shrink-0" title={`${s.date}: ${s.redemptions} redemptions, ₹${s.revenue.toFixed(0)} rev`}>
+                        return analytics.daily_series.map((s) => (
+                          <div key={s.date} className="flex flex-col items-center gap-1 shrink-0" title={`${s.date}: ${s.redemptions} redemptions, ₹${s.revenue.toFixed(0)} rev`}>
                             <div className="bg-[#3bb44b] rounded-t w-3 transition-all hover:bg-[#2e9038]" style={{ height: `${(s.redemptions / max) * 100}%`, minHeight: '4px' }} />
                             <span className="text-[9px] text-[#8dac96] -rotate-45 origin-top-left whitespace-nowrap pt-1">{s.date.slice(5)}</span>
                           </div>
