@@ -944,26 +944,57 @@ async def send_otp(req: SendOtpRequest):
     if len(phone) != 10 or phone[0] not in '6789':
         raise HTTPException(400, "Invalid Indian mobile number")
 
-    # Rate limit: max 3 OTPs per phone per 10 minutes
-    window_start = datetime.now(timezone.utc) - timedelta(minutes=10)
-    recent_count = await db.otp_log.count_documents({"phone": phone, "created_at": {"$gte": window_start}})
-    if recent_count >= 3:
-        raise HTTPException(429, "Too many OTP requests. Please try again in 10 minutes.")
+    otp_mode = os.environ.get('OTP_MODE', 'dev')
+    # Allow higher limits in dev for QA
+    is_dev = otp_mode != 'production'
+    max_per_window = 10 if is_dev else 3
+    cooldown_seconds = 5 if is_dev else 30
+
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=10)
+
+    # Only count SUCCESSFUL OTP sends in the rate limiter. Failed Twilio attempts
+    # (e.g., unverified trial-account numbers, network errors) must NOT consume the user's quota.
+    successful_recent = await db.otp_log.find(
+        {"phone": phone, "created_at": {"$gte": window_start}, "sms_sent": True},
+    ).sort("created_at", -1).to_list(max_per_window + 1)
+    if len(successful_recent) >= max_per_window:
+        oldest_dt = successful_recent[-1]["created_at"]
+        if oldest_dt.tzinfo is None:
+            oldest_dt = oldest_dt.replace(tzinfo=timezone.utc)
+        # Minutes until the oldest successful attempt falls out of the 10-min window
+        retry_in = max(1, int(10 - (now - oldest_dt).total_seconds() / 60))
+        raise HTTPException(429, f"Maximum {max_per_window} OTP requests reached for this number. Please try again in {retry_in} minute{'s' if retry_in != 1 else ''}.")
+
+    # Per-request cooldown: 30s between any send attempts (success or fail) to stop rapid double-clicks
+    last_attempt = await db.otp_log.find_one(
+        {"phone": phone},
+        sort=[("created_at", -1)],
+    )
+    if last_attempt:
+        # MongoDB returns naive UTC datetimes — re-attach tz before arithmetic
+        last_dt = last_attempt["created_at"]
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        elapsed = (now - last_dt).total_seconds()
+        if elapsed < cooldown_seconds:
+            wait = int(cooldown_seconds - elapsed) + 1
+            raise HTTPException(429, f"Please wait {wait} seconds before requesting another OTP.")
 
     # Cryptographically secure 6-digit OTP (uniform distribution)
     otp = f"{_secrets.randbelow(900000) + 100000}"
     await db.otps.delete_many({"phone": phone})
     await db.otps.insert_one({
         "phone": phone, "otp": otp,
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=5),
+        "created_at": now,
+        "expires_at": now + timedelta(minutes=5),
         "attempts": 0,
     })
 
-    otp_mode = os.environ.get('OTP_MODE', 'dev')
-    response = {"message": "OTP sent successfully", "expires_in": 300}
+    response = {"message": "OTP sent successfully", "expires_in": 300, "cooldown_seconds": cooldown_seconds}
     sms_sent = False
     sms_error = None
+    sms_error_code = None
 
     if otp_mode == 'production' and twilio_client and _tw_phone:
         try:
@@ -976,27 +1007,40 @@ async def send_otp(req: SendOtpRequest):
             sms_sent = True
             logging.info(f"OTP SMS sent to {to_phone[:6]}****{to_phone[-2:]} via Twilio SID={msg.sid}")
         except TwilioRestException as e:
-            sms_error = f"Twilio error {e.code}: {e.msg}"
-            logging.error(sms_error)
+            sms_error_code = getattr(e, 'code', None)
+            sms_error = f"Twilio {sms_error_code}: {getattr(e, 'msg', str(e))}"
+            logging.error(f"Twilio send failed [{sms_error_code}] for {phone[:3]}****{phone[-2:]}: {sms_error}")
         except Exception as e:
             sms_error = f"SMS send failed: {e}"
-            logging.error(sms_error)
+            logging.error(f"Unexpected SMS send error for {phone[:3]}****{phone[-2:]}: {sms_error}")
 
-    # Log every OTP send for rate-limit tracking and audit
+    # Audit log — records every attempt (success + failure) for debugging,
+    # but only `sms_sent=True` rows count against the quota above.
     await db.otp_log.insert_one({
         "phone": phone,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
         "sms_sent": sms_sent,
         "sms_error": sms_error,
+        "sms_error_code": sms_error_code,
         "mode": otp_mode,
     })
 
-    # Fallback to dev mode response if Twilio failed or not in production
-    if not sms_sent and otp_mode != 'production':
+    # Dev mode: expose OTP in response so QA can verify without SMS
+    if is_dev:
         response["dev_otp"] = otp
-    elif not sms_sent and sms_error:
-        # In production, if SMS fails outright (e.g., bad number), raise — don't silently fail
-        raise HTTPException(502, "Could not deliver SMS. Please try again or contact support.")
+        return response
+
+    # Production mode: Twilio MUST have delivered
+    if not sms_sent:
+        # Specific message for known Twilio trial-account error
+        if sms_error_code == 21608:
+            raise HTTPException(
+                502,
+                "This number isn't verified with our SMS provider yet. Please use email login, or contact support to add your number.",
+            )
+        if sms_error_code in (21211, 21614):
+            raise HTTPException(400, "Please enter a valid mobile number.")
+        raise HTTPException(502, "Unable to send OTP right now. Please try again in a moment or use email login.")
 
     return response
 

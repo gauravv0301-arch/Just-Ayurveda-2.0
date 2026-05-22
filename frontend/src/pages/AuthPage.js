@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Phone, Mail, Lock, User, Loader2, ArrowRight, KeyRound } from 'lucide-react';
@@ -20,7 +20,16 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0); // seconds remaining before resend allowed
+  const inFlight = useRef(false); // duplicate-click guard
   const redirect = searchParams.get('redirect') || '/account';
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setInterval(() => setResendIn(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
 
   const onSuccess = (token, customer) => {
     login(token, customer);
@@ -29,19 +38,30 @@ export default function AuthPage() {
   };
 
   const sendOtp = async () => {
+    if (inFlight.current) return; // hard guard against double-click + Strict Mode double-fire
     if (phone.replace(/\D/g, '').length < 10) { toast.error('Enter a valid phone number'); return; }
+    if (resendIn > 0) { toast.info(`Please wait ${resendIn}s before resending.`); return; }
+    inFlight.current = true;
     setLoading(true);
     try {
       const { data } = await axios.post(`${API}/customer/send-otp`, { phone });
       setOtpStep('otp');
+      setResendIn(data.cooldown_seconds || 30);
       if (data.dev_otp) {
         toast.success('OTP sent!', { description: `Dev OTP: ${data.dev_otp}` });
       } else {
         toast.success('OTP sent to your phone!');
       }
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Failed to send OTP');
-    } finally { setLoading(false); }
+      const detail = e.response?.data?.detail || 'Failed to send OTP';
+      toast.error(detail);
+      // If server says wait X seconds, sync our timer
+      const m = detail.match(/wait\s+(\d+)\s+second/i);
+      if (m) setResendIn(parseInt(m[1], 10));
+    } finally {
+      setLoading(false);
+      inFlight.current = false;
+    }
   };
 
   const verifyOtp = async () => {
@@ -129,9 +149,19 @@ export default function AuthPage() {
                     className="w-full bg-cta-gradient text-white rounded-full py-3 font-semibold flex items-center justify-center gap-2 btn-hover-scale disabled:opacity-60">
                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Verify & Login'}
                   </button>
-                  <button onClick={() => { setOtpStep('phone'); setOtp(''); }} className="w-full text-center text-sm text-[#8dac96] hover:text-[#3bb44b]">
-                    Change phone number
-                  </button>
+                  <div className="flex items-center justify-between text-sm">
+                    <button onClick={() => { setOtpStep('phone'); setOtp(''); }} className="text-[#8dac96] hover:text-[#3bb44b]">
+                      Change phone number
+                    </button>
+                    <button
+                      data-testid="resend-otp-btn"
+                      onClick={sendOtp}
+                      disabled={resendIn > 0 || loading}
+                      className="font-medium text-[#3bb44b] hover:text-[#2e9038] disabled:text-[#8dac96] disabled:cursor-not-allowed"
+                    >
+                      {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend OTP'}
+                    </button>
+                  </div>
                 </>
               )}
             </div>
