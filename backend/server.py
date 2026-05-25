@@ -719,6 +719,58 @@ async def admin_delete_blog(post_id: str, admin=Depends(get_current_admin)):
         raise HTTPException(404, "Article not found")
     return {"message": "Article deleted"}
 
+
+# ===== SITEMAP & ROBOTS =====
+@app.get("/sitemap.xml")
+async def sitemap():
+    from fastapi.responses import Response as _Resp
+    base = os.environ.get("PUBLIC_SITE_URL", "https://justayurveda.life").rstrip("/")
+    urls = [
+        ("/", "1.0", "weekly"),
+        ("/products", "0.9", "weekly"),
+        ("/about", "0.6", "monthly"),
+        ("/certifications", "0.6", "monthly"),
+        ("/blog", "0.8", "daily"),
+        ("/contact", "0.5", "monthly"),
+        ("/faq", "0.5", "monthly"),
+        ("/terms-and-conditions", "0.3", "yearly"),
+        ("/privacy-policy", "0.3", "yearly"),
+        ("/cancellation-and-refund", "0.3", "yearly"),
+        ("/shipping-and-exchange", "0.3", "yearly"),
+    ]
+    products = await db.products.find({}, {"_id": 0, "slug": 1}).to_list(500)
+    for p in products:
+        if p.get("slug"):
+            urls.append((f"/product/{p['slug']}", "0.8", "weekly"))
+    posts = await db.blog_posts.find({"status": "published"}, {"_id": 0, "slug": 1, "updated_at": 1}).to_list(500)
+    for p in posts:
+        if p.get("slug"):
+            urls.append((f"/blog/{p['slug']}", "0.7", "monthly"))
+
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for path, priority, freq in urls:
+        xml.append(f"  <url><loc>{base}{path}</loc><lastmod>{today}</lastmod><changefreq>{freq}</changefreq><priority>{priority}</priority></url>")
+    xml.append('</urlset>')
+    return _Resp(content="\n".join(xml), media_type="application/xml")
+
+@app.get("/robots.txt")
+async def robots():
+    from fastapi.responses import PlainTextResponse
+    base = os.environ.get("PUBLIC_SITE_URL", "https://justayurveda.life").rstrip("/")
+    txt = f"""User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/admin/
+Disallow: /checkout
+Disallow: /auth
+Disallow: /account
+
+Sitemap: {base}/sitemap.xml
+"""
+    return PlainTextResponse(txt)
+
 @api_router.get("/admin/orders")
 async def get_all_orders(admin=Depends(get_current_admin)):
     orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)

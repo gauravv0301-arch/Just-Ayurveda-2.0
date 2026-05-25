@@ -6,7 +6,7 @@ import { useCart } from '@/context/CartContext';
 import { useCustomer } from '@/context/CustomerContext';
 import { useTranslation } from 'react-i18next';
 
-const LOGO_URL = "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d6e-8012-e706aac63019/artifacts/xpbtujgt_WhatsApp%20Image%202026-04-15%20at%206.35.09%20PM.jpeg";
+const LOGO_URL = "/logo.png";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);

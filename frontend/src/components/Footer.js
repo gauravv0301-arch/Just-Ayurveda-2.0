@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MessageCircle, Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
 
-const LOGO_URL = "https://customer-assets.emergentagent.com/job_9174a9c7-fdaa-4d6e-8012-e706aac63019/artifacts/xpbtujgt_WhatsApp%20Image%202026-04-15%20at%206.35.09%20PM.jpeg";
+const LOGO_URL = "/logo.png";
 
 const quickLinks = [
   { label: 'Home', to: '/' },
@@ -35,7 +35,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <img src={LOGO_URL} alt="Just Ayurveda" className="h-12 w-auto mb-4 brightness-200" />
+            <img src={LOGO_URL} alt="Just Ayurveda" className="h-12 w-auto mb-4" />
             <p className="text-[#8dac96] text-sm leading-relaxed max-w-xs">
               Premium Ayurvedic wellness products crafted for the modern man.
             </p>

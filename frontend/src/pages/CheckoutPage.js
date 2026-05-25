@@ -217,6 +217,7 @@ export default function CheckoutPage() {
       const options = {
         key: RAZORPAY_KEY, amount: data.amount, currency: data.currency,
         name: 'Just Ayurveda', description: `Order: ${data.product_name}`,
+        image: `${window.location.origin}/logo.png`,
         order_id: data.razorpay_order_id,
         handler: async (response) => {
           try {
