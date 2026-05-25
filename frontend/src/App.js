@@ -25,6 +25,10 @@ import AuthPage from '@/pages/AuthPage';
 import AccountPage from '@/pages/AccountPage';
 import BlogListPage from '@/pages/BlogListPage';
 import BlogPostPage from '@/pages/BlogPostPage';
+import TermsPage from '@/pages/TermsPage';
+import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage';
+import RefundPolicyPage from '@/pages/RefundPolicyPage';
+import ShippingPolicyPage from '@/pages/ShippingPolicyPage';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -55,6 +59,10 @@ function AppContent() {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/blog" element={<BlogListPage />} />
           <Route path="/blog/:slug" element={<BlogPostPage />} />
+          <Route path="/terms-and-conditions" element={<TermsPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/cancellation-and-refund" element={<RefundPolicyPage />} />
+          <Route path="/shipping-and-exchange" element={<ShippingPolicyPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/success" element={<OrderSuccessPage />} />
           <Route path="/failed" element={<OrderFailedPage />} />

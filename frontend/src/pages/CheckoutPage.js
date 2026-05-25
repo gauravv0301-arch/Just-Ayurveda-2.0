@@ -459,6 +459,13 @@ export default function CheckoutPage() {
                 {processing ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><ShoppingBag className="w-5 h-5" /> Pay {"\u20B9"}{finalTotal.toLocaleString('en-IN')}</>}
               </button>
               <p className="text-xs text-[#8dac96] text-center mt-3">Secured by Razorpay. Discreet billing.</p>
+              <p className="text-[10px] text-[#8dac96]/80 text-center mt-3 leading-relaxed">
+                By clicking "Pay" you agree to our{' '}
+                <Link to="/terms-and-conditions" className="underline hover:text-[#3bb44b]">Terms</Link>,{' '}
+                <Link to="/privacy-policy" className="underline hover:text-[#3bb44b]">Privacy Policy</Link>,{' '}
+                <Link to="/cancellation-and-refund" className="underline hover:text-[#3bb44b]">Refund Policy</Link>{' '}and{' '}
+                <Link to="/shipping-and-exchange" className="underline hover:text-[#3bb44b]">Shipping Policy</Link>.
+              </p>
             </div>
           </div>
         </div>

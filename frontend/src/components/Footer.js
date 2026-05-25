@@ -13,6 +13,13 @@ const quickLinks = [
   { label: 'Contact', to: '/contact' },
 ];
 
+const policyLinks = [
+  { label: 'Privacy Policy', to: '/privacy-policy' },
+  { label: 'Terms & Conditions', to: '/terms-and-conditions' },
+  { label: 'Refund & Cancellation', to: '/cancellation-and-refund' },
+  { label: 'Shipping & Exchange', to: '/shipping-and-exchange' },
+];
+
 const socialLinks = [
   { icon: Instagram, href: 'https://instagram.com/justayurveda', label: 'Instagram' },
   { icon: Facebook, href: 'https://facebook.com/justayurveda', label: 'Facebook' },
@@ -25,9 +32,9 @@ export default function Footer() {
   return (
     <footer className="bg-dark-gradient text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
           {/* Brand */}
-          <div className="md:col-span-1">
+          <div className="col-span-2 md:col-span-1">
             <img src={LOGO_URL} alt="Just Ayurveda" className="h-12 w-auto mb-4 brightness-200" />
             <p className="text-[#8dac96] text-sm leading-relaxed max-w-xs">
               Premium Ayurvedic wellness products crafted for the modern man.
@@ -40,6 +47,19 @@ export default function Footer() {
             <div className="flex flex-col gap-2.5">
               {quickLinks.map((link) => (
                 <Link key={link.to} to={link.to} data-testid={`footer-link-${link.label.toLowerCase().replace(/\s/g, '-')}`}
+                  className="text-sm text-[#8dac96] hover:text-[#3bb44b] transition-colors">
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Policies */}
+          <div>
+            <h4 className="font-['Outfit'] font-semibold text-white text-base mb-4">Policies</h4>
+            <div className="flex flex-col gap-2.5">
+              {policyLinks.map((link) => (
+                <Link key={link.to} to={link.to} data-testid={`footer-policy-${link.to.replace('/', '')}`}
                   className="text-sm text-[#8dac96] hover:text-[#3bb44b] transition-colors">
                   {link.label}
                 </Link>

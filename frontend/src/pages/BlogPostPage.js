@@ -91,13 +91,7 @@ export default function BlogPostPage() {
         )}
 
         {/* Content (markdown) */}
-        <div className="prose prose-green max-w-none text-[#233232] leading-relaxed
-                        prose-headings:font-['Outfit'] prose-headings:text-[#233232]
-                        prose-a:text-[#3bb44b] prose-a:no-underline hover:prose-a:underline
-                        prose-strong:text-[#233232]
-                        prose-li:marker:text-[#3bb44b]
-                        prose-blockquote:border-[#3bb44b] prose-blockquote:text-[#4f5958]
-                        prose-img:rounded-2xl">
+        <div className="legal-content text-[#233232]">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>
         </div>
 
